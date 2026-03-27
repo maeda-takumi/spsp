@@ -30,6 +30,24 @@ if ($sheetId === '') {
     exit;
 }
 
+function tableHasColumn(PDO $pdo, string $tableName, string $columnName): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT 1
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = :schema
+           AND TABLE_NAME = :table_name
+           AND COLUMN_NAME = :column_name
+         LIMIT 1'
+    );
+    $stmt->bindValue(':schema', DB_NAME);
+    $stmt->bindValue(':table_name', $tableName);
+    $stmt->bindValue(':column_name', $columnName);
+    $stmt->execute();
+
+    return (bool) $stmt->fetchColumn();
+}
+
 $pdo = db();
 
 $recordStmt = $pdo->prepare('SELECT * FROM customer_sales_records WHERE sheet_id = :sheet_id LIMIT 1');
@@ -75,6 +93,21 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_drafts (
         ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
 
+$pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_attachments (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    customer_sales_record_id BIGINT UNSIGNED NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_customer_sales_record_email_attachments_record_id (customer_sales_record_id),
+    CONSTRAINT fk_customer_sales_record_email_attachments_record_id
+        FOREIGN KEY (customer_sales_record_id)
+        REFERENCES customer_sales_records (id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+
 $pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_send_logs (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     customer_sales_record_id BIGINT UNSIGNED NOT NULL,
@@ -96,17 +129,55 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_send_logs (
         ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
 
+$pdo->exec('CREATE TABLE IF NOT EXISTS customer_memo (
+    sheet_id BIGINT(20) NOT NULL,
+    memo TEXT NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (sheet_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+
+if (!tableHasColumn($pdo, 'customer_sales_record_email_drafts', 'mail_to')) {
+    $pdo->exec('ALTER TABLE customer_sales_record_email_drafts ADD COLUMN mail_to VARCHAR(255) NULL AFTER email_template_id');
+}
+if (!tableHasColumn($pdo, 'customer_sales_record_email_send_logs', 'mail_to')) {
+    $pdo->exec('ALTER TABLE customer_sales_record_email_send_logs ADD COLUMN mail_to VARCHAR(255) NOT NULL AFTER email_template_id');
+}
+
 $recordId = (int) ($record['id'] ?? 0);
-$draftStmt = $pdo->prepare('SELECT email_template_id, mail_subject, mail_body FROM customer_sales_record_email_drafts WHERE customer_sales_record_id = :record_id LIMIT 1');
+$draftStmt = $pdo->prepare('SELECT email_template_id, mail_to, mail_subject, mail_body FROM customer_sales_record_email_drafts WHERE customer_sales_record_id = :record_id LIMIT 1');
 $draftStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
 $draftStmt->execute();
 $existingDraft = $draftStmt->fetch() ?: [];
 
+$attachmentStmt = $pdo->prepare('SELECT id, file_name, file_path, created_at FROM customer_sales_record_email_attachments WHERE customer_sales_record_id = :record_id ORDER BY created_at DESC, id DESC');
+$attachmentStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
+$attachmentStmt->execute();
+$existingAttachments = $attachmentStmt->fetchAll();
+
+$defaultMailTo = '';
+if (filter_var((string) ($record['email'] ?? ''), FILTER_VALIDATE_EMAIL)) {
+    $defaultMailTo = (string) ($record['email'] ?? '');
+}
+$sheetIdForMemo = ctype_digit($sheetId) ? (int) $sheetId : null;
+$memoStmt = $sheetIdForMemo !== null
+    ? $pdo->prepare('SELECT memo FROM customer_memo WHERE sheet_id = :sheet_id LIMIT 1')
+    : null;
+$memoValue = '';
+if ($memoStmt !== null) {
+    $memoStmt->bindValue(':sheet_id', $sheetIdForMemo, PDO::PARAM_INT);
+    $memoStmt->execute();
+    $memoRow = $memoStmt->fetch();
+    $memoValue = (string) ($memoRow['memo'] ?? '');
+}
+$memoError = '';
+
 $errors = [];
+$currentAction = (string) ($_POST['action'] ?? '');
 $formValues = [
     'writing' => '',
     'writing_notes' => '',
     'email_template_id' => isset($existingDraft['email_template_id']) ? (string) $existingDraft['email_template_id'] : '',
+    'mail_to' => (string) ($existingDraft['mail_to'] ?? $defaultMailTo),
     'mail_subject' => (string) ($existingDraft['mail_subject'] ?? ''),
     'mail_body' => (string) ($existingDraft['mail_body'] ?? ''),
     'template_name' => '',
@@ -129,7 +200,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $targetWriting = null;
     $fileName = '';
 
-    if ($action === 'template_create' || $action === 'template_update' || $action === 'template_delete') {
+    if ($action === 'save_memo') {
+        $memoInput = trim((string) ($_POST['memo'] ?? ''));
+        $memoValue = $memoInput;
+        if ($sheetIdForMemo === null) {
+            $memoError = 'メモ保存対象のsheet_idが不正です。';
+        } elseif ($memoInput === '') {
+            $memoError = 'メモを入力してください。';
+        } else {
+            $saveMemoStmt = $pdo->prepare(
+                'INSERT INTO customer_memo (sheet_id, memo)
+                 VALUES (:sheet_id, :memo)
+                 ON DUPLICATE KEY UPDATE memo = VALUES(memo)'
+            );
+            $saveMemoStmt->bindValue(':sheet_id', $sheetIdForMemo, PDO::PARAM_INT);
+            $saveMemoStmt->bindValue(':memo', $memoInput);
+            $saveMemoStmt->execute();
+            header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&memo_saved=1&refresh=' . time() . '#customer-memo');
+            exit;
+        }
+    } elseif ($action === 'template_create' || $action === 'template_update' || $action === 'template_delete') {
         $templateId = (int) ($_POST['template_id'] ?? 0);
         $templateName = trim((string) ($_POST['template_name'] ?? ''));
         $templateSubject = trim((string) ($_POST['template_subject'] ?? ''));
@@ -177,13 +267,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'save_email_draft' || $action === 'send_email') {
         $templateId = (int) ($_POST['email_template_id'] ?? 0);
+        $mailTo = trim((string) ($_POST['mail_to'] ?? ''));
         $mailSubject = trim((string) ($_POST['mail_subject'] ?? ''));
         $mailBody = trim((string) ($_POST['mail_body'] ?? ''));
         $slideConfirmed = (string) ($_POST['slide_confirmed'] ?? '');
+        $mailAttachments = $_FILES['mail_attachments'] ?? null;
         $formValues['email_template_id'] = $templateId > 0 ? (string) $templateId : '';
+        $formValues['mail_to'] = $mailTo;
         $formValues['mail_subject'] = $mailSubject;
         $formValues['mail_body'] = $mailBody;
 
+        if ($mailTo === '') {
+            $errors[] = '宛先メールアドレスを入力してください。';
+        } elseif (!filter_var($mailTo, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = '宛先メールアドレスの形式が不正です。';
+        }
         if ($mailSubject === '' || $mailBody === '') {
             $errors[] = '件名と本文を入力してください。';
         }
@@ -192,25 +290,112 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = '送信スライドを完了してください。';
         }
 
+        $attachmentUploadRows = [];
+        if (is_array($mailAttachments) && is_array($mailAttachments['name'] ?? null)) {
+            $allowedAttachmentMimes = [
+                'image/jpeg',
+                'image/png',
+                'image/gif',
+                'image/webp',
+                'application/pdf',
+                'text/plain',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            ];
+            $maxAttachmentBytes = 20 * 1024 * 1024;
+            $uploadCount = count($mailAttachments['name']);
+            for ($i = 0; $i < $uploadCount; $i++) {
+                $errorCode = (int) ($mailAttachments['error'][$i] ?? UPLOAD_ERR_NO_FILE);
+                if ($errorCode === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
+                if ($errorCode !== UPLOAD_ERR_OK) {
+                    $errors[] = '添付ファイルのアップロードに失敗しました。';
+                    break;
+                }
+
+                $originalName = trim((string) ($mailAttachments['name'][$i] ?? ''));
+                $tmpName = (string) ($mailAttachments['tmp_name'][$i] ?? '');
+                $size = (int) ($mailAttachments['size'][$i] ?? 0);
+                $mimeType = (string) ($mailAttachments['type'][$i] ?? '');
+
+                if ($originalName === '' || $tmpName === '') {
+                    $errors[] = '添付ファイルの情報が不正です。';
+                    break;
+                }
+                if ($size > $maxAttachmentBytes) {
+                    $errors[] = sprintf('添付ファイル「%s」は20MB以下にしてください。', $originalName);
+                    break;
+                }
+                if ($mimeType !== '' && !in_array($mimeType, $allowedAttachmentMimes, true)) {
+                    $errors[] = sprintf('添付ファイル「%s」は対応していない形式です。', $originalName);
+                    break;
+                }
+
+                $extension = strtolower((string) pathinfo($originalName, PATHINFO_EXTENSION));
+                $baseName = pathinfo($originalName, PATHINFO_FILENAME);
+                $sanitizedBaseName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $baseName) ?: 'file';
+                $storedFileName = sprintf('%s_%s_%s.%s', date('Ymd_His'), bin2hex(random_bytes(4)), $sanitizedBaseName, $extension ?: 'dat');
+
+                $attachmentUploadRows[] = [
+                    'tmp_name' => $tmpName,
+                    'stored_file_name' => $storedFileName,
+                    'original_name' => $originalName,
+                ];
+            }
+        }
         if ($errors === []) {
             $upsertDraftStmt = $pdo->prepare(
-                'INSERT INTO customer_sales_record_email_drafts (customer_sales_record_id, email_template_id, mail_subject, mail_body)
-                 VALUES (:record_id, :template_id, :mail_subject, :mail_body)
-                 ON DUPLICATE KEY UPDATE email_template_id = VALUES(email_template_id), mail_subject = VALUES(mail_subject), mail_body = VALUES(mail_body)'
+                'INSERT INTO customer_sales_record_email_drafts (customer_sales_record_id, email_template_id, mail_to, mail_subject, mail_body)
+                 VALUES (:record_id, :template_id, :mail_to, :mail_subject, :mail_body)
+                 ON DUPLICATE KEY UPDATE email_template_id = VALUES(email_template_id), mail_to = VALUES(mail_to), mail_subject = VALUES(mail_subject), mail_body = VALUES(mail_body)'
             );
             $upsertDraftStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
             $upsertDraftStmt->bindValue(':template_id', $templateId > 0 ? $templateId : null, $templateId > 0 ? PDO::PARAM_INT : PDO::PARAM_NULL);
+            $upsertDraftStmt->bindValue(':mail_to', $mailTo);
             $upsertDraftStmt->bindValue(':mail_subject', $mailSubject);
             $upsertDraftStmt->bindValue(':mail_body', $mailBody);
             $upsertDraftStmt->execute();
 
-            if ($action === 'send_email') {
+            if ($attachmentUploadRows !== []) {
+                $attachmentUploadDir = __DIR__ . '/uploads/email_attachments';
+                if (!is_dir($attachmentUploadDir) && !mkdir($attachmentUploadDir, 0777, true) && !is_dir($attachmentUploadDir)) {
+                    $errors[] = '添付ファイル保存先フォルダの作成に失敗しました。';
+                } else {
+                    $insertAttachmentStmt = $pdo->prepare(
+                        'INSERT INTO customer_sales_record_email_attachments (customer_sales_record_id, file_name, file_path)
+                         VALUES (:record_id, :file_name, :file_path)'
+                    );
+
+                    foreach ($attachmentUploadRows as $attachmentUploadRow) {
+                        $destination = $attachmentUploadDir . '/' . $attachmentUploadRow['stored_file_name'];
+                        if (!move_uploaded_file($attachmentUploadRow['tmp_name'], $destination)) {
+                            $errors[] = sprintf('添付ファイル「%s」の保存に失敗しました。', $attachmentUploadRow['original_name']);
+                            break;
+                        }
+
+                        $insertAttachmentStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
+                        $insertAttachmentStmt->bindValue(':file_name', $attachmentUploadRow['original_name']);
+                        $insertAttachmentStmt->bindValue(':file_path', 'uploads/email_attachments/' . $attachmentUploadRow['stored_file_name']);
+                        $insertAttachmentStmt->execute();
+                    }
+                }
+            }
+
+            if ($errors !== []) {
+                $attachmentStmt->execute();
+                $existingAttachments = $attachmentStmt->fetchAll();
+            }
+
+            if ($errors === [] && $action === 'send_email') {
                 $sendLogStmt = $pdo->prepare(
-                    'INSERT INTO customer_sales_record_email_send_logs (customer_sales_record_id, email_template_id, mail_subject, mail_body)
-                     VALUES (:record_id, :template_id, :mail_subject, :mail_body)'
+                    'INSERT INTO customer_sales_record_email_send_logs (customer_sales_record_id, email_template_id, mail_to, mail_subject, mail_body)
+                     VALUES (:record_id, :template_id, :mail_to, :mail_subject, :mail_body)'
                 );
                 $sendLogStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
                 $sendLogStmt->bindValue(':template_id', $templateId > 0 ? $templateId : null, $templateId > 0 ? PDO::PARAM_INT : PDO::PARAM_NULL);
+                $sendLogStmt->bindValue(':mail_to', $mailTo);
                 $sendLogStmt->bindValue(':mail_subject', $mailSubject);
                 $sendLogStmt->bindValue(':mail_body', $mailBody);
                 $sendLogStmt->execute();
@@ -218,8 +403,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
-            header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&draft_saved=1&refresh=' . time() . '#email-compose');
-            exit;
+            if ($errors === []) {
+                header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&draft_saved=1&refresh=' . time() . '#email-compose');
+                exit;
+            }
         }
     }
 
@@ -376,6 +563,21 @@ require 'header.php';
       <!-- <a href="#customer-info">顧客情報</a>
       <a href="#writing-list">Writing一覧</a> -->
     </nav>
+    <section id="customer-memo" class="memo-panel">
+      <h2>メモ</h2>
+      <?php if (isset($_GET['memo_saved'])): ?>
+        <p class="notice memo-notice">メモを保存しました。</p>
+      <?php elseif ($memoError !== ''): ?>
+        <p class="error memo-notice"><?= h($memoError); ?></p>
+      <?php endif; ?>
+      <form method="post" class="memo-form">
+        <input type="hidden" name="action" value="save_memo">
+        <textarea name="memo" rows="8" placeholder="メモを入力してください。"><?= h($memoValue); ?></textarea>
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </section>
   </aside>
 
   <section class="main-panel detail-main-panel">
@@ -411,7 +613,15 @@ require 'header.php';
             <p class="notice">メール送信を受け付けました。</p>
           <?php endif; ?>
 
-          <form method="post" class="email-form" data-email-form>
+          <?php if ($errors !== [] && ($currentAction === 'save_email_draft' || $currentAction === 'send_email')): ?>
+            <ul class="error-list">
+              <?php foreach ($errors as $error): ?>
+                <li><?= h($error); ?></li>
+              <?php endforeach; ?>
+            </ul>
+          <?php endif; ?>
+
+          <form method="post" class="email-form" data-email-form enctype="multipart/form-data">
             <input type="hidden" name="slide_confirmed" value="0" data-slide-confirmed>
             <div class="field">
               <label for="email_template_id">テンプレート</label>
@@ -429,6 +639,10 @@ require 'header.php';
                 <?php endforeach; ?>
               </select>
             </div>
+            <div class="field">
+              <label for="mail_to">宛先</label>
+              <input id="mail_to" name="mail_to" type="email" value="<?= h($formValues['mail_to']); ?>" placeholder="example@example.com">
+            </div>
 
             <div class="field">
               <label for="mail_subject">件名</label>
@@ -440,8 +654,30 @@ require 'header.php';
               <textarea id="mail_body" name="mail_body" rows="12" class="mail-body-textarea" data-mail-body><?= h($formValues['mail_body']); ?></textarea>
             </div>
 
+            <div class="field attachment-field">
+              <label>添付ファイル</label>
+              <div class="attachment-controls">
+                <button type="button" class="btn btn-icon" data-attachment-trigger aria-label="添付ファイルを選択">
+                  <img src="img/link.png" alt="" loading="lazy">
+                </button>
+                <input id="mail_attachments" name="mail_attachments[]" type="file" multiple hidden data-attachment-input>
+                <span class="file-meta" data-attachment-meta>未選択</span>
+              </div>
+              <?php if ($existingAttachments !== []): ?>
+                <ul class="attachment-list">
+                  <?php foreach ($existingAttachments as $attachment): ?>
+                    <li>
+                      <a href="<?= h((string) ($attachment['file_path'] ?? '')); ?>" target="_blank" rel="noopener noreferrer">
+                        <?= h((string) ($attachment['file_name'] ?? '添付ファイル')); ?>
+                      </a>
+                    </li>
+                  <?php endforeach; ?>
+                </ul>
+              <?php endif; ?>
+            </div>
+
             <div class="actions email-actions">
-              <button class="btn btn-ghost" type="submit" name="action" value="save_email_draft">保存</button>
+              <button class="btn btn-ghost" type="submit" name="action" value="save_email_draft">下書き保存</button>
             </div>
 
             <div class="swipe-send" data-swipe-send>
@@ -467,7 +703,7 @@ require 'header.php';
             <p class="notice">削除しました。</p>
           <?php endif; ?>
 
-          <?php if ($errors !== []): ?>
+          <?php if ($errors !== [] && ($currentAction === 'create' || $currentAction === 'update' || $currentAction === 'delete')): ?>
             <ul class="error-list">
               <?php foreach ($errors as $error): ?>
                 <li><?= h($error); ?></li>
@@ -581,7 +817,7 @@ require 'header.php';
         <textarea id="writing_notes" name="writing_notes" rows="4"><?= h($formValues['writing_notes']); ?></textarea>
       </div>
       <div class="actions">
-        <button class="btn btn-primary" type="submit">保存</button>
+        <button class="btn btn-primary" type="submit" style="width: 100%;">保存</button>
       </div>
     </form>
   </div>

@@ -165,6 +165,9 @@
     const slideConfirmed = emailForm.querySelector('[data-slide-confirmed]');
     const swipeWrap = emailForm.querySelector('[data-swipe-send]');
     const swipeThumb = emailForm.querySelector('[data-swipe-thumb]');
+    const attachmentTrigger = emailForm.querySelector('[data-attachment-trigger]');
+    const attachmentInput = emailForm.querySelector('[data-attachment-input]');
+    const attachmentMeta = emailForm.querySelector('[data-attachment-meta]');
 
     if (templateSelect && mailSubject && mailBody) {
       templateSelect.addEventListener('change', () => {
@@ -177,6 +180,22 @@
       });
     }
 
+    if (attachmentTrigger && attachmentInput && attachmentMeta) {
+      const updateAttachmentMeta = () => {
+        const files = attachmentInput.files;
+        if (!files || files.length === 0) {
+          attachmentMeta.textContent = '未選択';
+          return;
+        }
+        const names = Array.from(files).map((file) => file.name);
+        attachmentMeta.textContent = names.join(', ');
+      };
+
+      attachmentTrigger.addEventListener('click', () => {
+        attachmentInput.click();
+      });
+      attachmentInput.addEventListener('change', updateAttachmentMeta);
+    }
     if (swipeWrap && swipeThumb && slideConfirmed) {
       const track = swipeWrap.querySelector('.swipe-send-track');
       let isDragging = false;

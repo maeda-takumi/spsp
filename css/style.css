@@ -409,6 +409,11 @@ body {
   font-weight: 600;
 }
 
+.error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
 .error-list {
   margin: 0 0 12px;
   padding-left: 20px;
@@ -559,6 +564,21 @@ audio {
 
 .email-form .field + .field {
   margin-top: 10px;
+}
+
+.attachment-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.attachment-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+.attachment-list li + li {
+  margin-top: 4px;
 }
 
 .swipe-send {
