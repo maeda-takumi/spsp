@@ -39,20 +39,43 @@
         const writing = button.getAttribute('data-writing') || '';
         const writingNotes = button.getAttribute('data-writing-notes') || '';
         const fileName = button.getAttribute('data-file-name') || '';
+        const writingId = button.getAttribute('data-writing-id') || '';
 
-        const writingNode = modal.querySelector('[data-modal-writing]');
-        const notesNode = modal.querySelector('[data-modal-writing-notes]');
+        const writingNode = modal.querySelector('[data-modal-writing-input]');
+        const notesNode = modal.querySelector('[data-modal-writing-notes-input]');
         const fileNameNode = modal.querySelector('[data-modal-file-name]');
         const audioNode = modal.querySelector('[data-modal-audio]');
+        const writingIdNode = modal.querySelector('[data-modal-writing-id]');
+        const actionNode = modal.querySelector('[data-modal-action]');
+        const deleteNode = modal.querySelector('[data-modal-delete]');
 
         if (writingNode) {
-          writingNode.textContent = writing;
+          writingNode.value = writing;
         }
         if (notesNode) {
-          notesNode.textContent = writingNotes;
+          notesNode.value = writingNotes;
         }
         if (fileNameNode) {
           fileNameNode.textContent = fileName;
+          audioNode.load();
+        }
+        if (writingIdNode) {
+          writingIdNode.value = writingId;
+        }
+        if (actionNode) {
+          actionNode.value = 'update';
+        }
+        if (deleteNode) {
+          deleteNode.addEventListener('click', (event) => {
+            const ok = window.confirm('このwritingデータを削除しますか？');
+            if (!ok) {
+              event.preventDefault();
+              return;
+            }
+            if (actionNode) {
+              actionNode.value = 'delete';
+            }
+          }, { once: true });
         }
         if (audioNode) {
           audioNode.src = fileName;

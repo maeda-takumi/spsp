@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 require_once 'config.php';
 
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+
 function h(?string $value): string
 {
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
@@ -40,17 +44,58 @@ if (!$record) {
 }
 
 $errors = [];
+$formValues = [
+    'writing' => '',
+    'writing_notes' => '',
+];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $fileName = '';
+    $action = (string) ($_POST['action'] ?? 'create');
+    $writingId = (int) ($_POST['writing_id'] ?? 0);
     $writing = trim((string) ($_POST['writing'] ?? ''));
     $writingNotes = trim((string) ($_POST['writing_notes'] ?? ''));
+    $formValues['writing'] = $writing;
+    $formValues['writing_notes'] = $writingNotes;
     $audioFile = $_FILES['audio_file'] ?? null;
+    $recordId = (int) ($record['id'] ?? 0);
+    $isUpdate = $action === 'update';
+    $isDelete = $action === 'delete';
+    $targetWriting = null;
+    $fileName = '';
 
-    if (!is_array($audioFile) || (int) ($audioFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+    if (($isUpdate || $isDelete) && $writingId <= 0) {
+        $errors[] = '対象データが不正です。';
+    }
+
+    if (($isUpdate || $isDelete) && $errors === []) {
+        $targetStmt = $pdo->prepare('SELECT id, file_name FROM customer_sales_record_writings WHERE id = :id AND sheet_id = :sheet_id LIMIT 1');
+        $targetStmt->bindValue(':id', $writingId, PDO::PARAM_INT);
+        $targetStmt->bindValue(':sheet_id', $recordId, PDO::PARAM_INT);
+        $targetStmt->execute();
+        $targetWriting = $targetStmt->fetch();
+
+        if (!$targetWriting) {
+            $errors[] = '対象のwritingデータが見つかりません。';
+        } else {
+            $fileName = (string) ($targetWriting['file_name'] ?? '');
+        }
+    }
+
+    if ($isDelete && $errors === []) {
+        $deleteStmt = $pdo->prepare('DELETE FROM customer_sales_record_writings WHERE id = :id AND sheet_id = :sheet_id');
+        $deleteStmt->bindValue(':id', $writingId, PDO::PARAM_INT);
+        $deleteStmt->bindValue(':sheet_id', $recordId, PDO::PARAM_INT);
+        $deleteStmt->execute();
+
+        header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&deleted=1&refresh=' . time() . '#writing-list');
+        exit;
+    }
+
+    $isNoFile = !is_array($audioFile) || (int) ($audioFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE;
+    if (!$isUpdate && $isNoFile) {
         $errors[] = '音声ファイルは必須です。';
-    } elseif ((int) $audioFile['error'] !== UPLOAD_ERR_OK) {
+    } elseif (!$isNoFile && (int) $audioFile['error'] !== UPLOAD_ERR_OK) {
         $errors[] = '音声ファイルのアップロードに失敗しました。';
-    } else {
+    } elseif (!$isNoFile) {
         $originalName = (string) ($audioFile['name'] ?? '');
         $extension = strtolower((string) pathinfo($originalName, PATHINFO_EXTENSION));
         $allowedExtensions = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'webm', 'mp4'];
@@ -88,14 +133,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($errors === []) {
-        $insertStmt = $pdo->prepare('INSERT INTO customer_sales_record_writings (sheet_id, file_name, writing, writing_notes) VALUES (:sheet_id, :file_name, :writing, :writing_notes)');
-        $insertStmt->bindValue(':sheet_id', (int) ($record['id'] ?? 0), PDO::PARAM_INT);
-        $insertStmt->bindValue(':file_name', $fileName);
-        $insertStmt->bindValue(':writing', $writing === '' ? null : $writing);
-        $insertStmt->bindValue(':writing_notes', $writingNotes === '' ? null : $writingNotes);
-        $insertStmt->execute();
+        if ($isUpdate) {
+            $updateStmt = $pdo->prepare('UPDATE customer_sales_record_writings SET file_name = :file_name, writing = :writing, writing_notes = :writing_notes WHERE id = :id AND sheet_id = :sheet_id');
+            $updateStmt->bindValue(':file_name', $fileName);
+            $updateStmt->bindValue(':writing', $writing === '' ? null : $writing);
+            $updateStmt->bindValue(':writing_notes', $writingNotes === '' ? null : $writingNotes);
+            $updateStmt->bindValue(':id', $writingId, PDO::PARAM_INT);
+            $updateStmt->bindValue(':sheet_id', $recordId, PDO::PARAM_INT);
+            $updateStmt->execute();
+            $noticeParam = 'updated=1';
+        } else {
+            $insertStmt = $pdo->prepare('INSERT INTO customer_sales_record_writings (sheet_id, file_name, writing, writing_notes) VALUES (:sheet_id, :file_name, :writing, :writing_notes)');
+            $insertStmt->bindValue(':sheet_id', $recordId, PDO::PARAM_INT);
+            $insertStmt->bindValue(':file_name', $fileName);
+            $insertStmt->bindValue(':writing', $writing === '' ? null : $writing);
+            $insertStmt->bindValue(':writing_notes', $writingNotes === '' ? null : $writingNotes);
+            $insertStmt->execute();
+            $noticeParam = 'saved=1';
+        }
 
-        header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&saved=1');
+        header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&' . $noticeParam . '&refresh=' . time() . '#writing-list');
         exit;
     }
 }
@@ -151,8 +208,8 @@ require 'header.php';
 
     <nav class="side-nav" aria-label="メニュー">
       <a href="index.php">一覧へ戻る</a>
-      <a href="#customer-info">顧客情報</a>
-      <a href="#writing-list">Writing一覧</a>
+      <!-- <a href="#customer-info">顧客情報</a>
+      <a href="#writing-list">Writing一覧</a> -->
     </nav>
   </aside>
 
@@ -178,6 +235,10 @@ require 'header.php';
 
         <?php if (isset($_GET['saved'])): ?>
           <p class="notice">保存しました。</p>
+        <?php elseif (isset($_GET['updated'])): ?>
+          <p class="notice">更新しました。</p>
+        <?php elseif (isset($_GET['deleted'])): ?>
+          <p class="notice">削除しました。</p>
         <?php endif; ?>
 
         <?php if ($errors !== []): ?>
@@ -211,7 +272,7 @@ require 'header.php';
                     data-open-modal="writing-modal"
                     data-writing="<?= h((string) ($writing['writing'] ?? '')); ?>"
                     data-writing-notes="<?= h((string) ($writing['writing_notes'] ?? '')); ?>"
-                    data-file-name="<?= h((string) ($writing['file_name'] ?? '')); ?>"
+                    data-writing-id="<?= h((string) ($writing['id'] ?? '')); ?>"
                   >
                     詳細を見る
                   </button>
@@ -232,17 +293,30 @@ require 'header.php';
       <h3>Writing詳細</h3>
       <button type="button" class="btn btn-ghost" data-close-modal>閉じる</button>
     </div>
-    <dl class="writing-detail">
-      <dt>writing</dt>
-      <dd data-modal-writing></dd>
-      <dt>writing_notes</dt>
-      <dd data-modal-writing-notes></dd>
-      <dt>音声ファイル</dt>
-      <dd>
-        <p class="audio-file" data-modal-file-name></p>
-        <audio controls data-modal-audio></audio>
-      </dd>
-    </dl>
+    <form method="post" class="writing-form" enctype="multipart/form-data">
+      <input type="hidden" name="action" value="update" data-modal-action>
+      <input type="hidden" name="writing_id" value="" data-modal-writing-id>
+      <dl class="writing-detail">
+        <dt>writing</dt>
+        <dd>
+          <textarea name="writing" rows="10" data-modal-writing-input></textarea>
+        </dd>
+        <dt>writing_notes</dt>
+        <dd>
+          <textarea name="writing_notes" rows="14" data-modal-writing-notes-input></textarea>
+        </dd>
+        <dt>音声ファイル（差し替え任意）</dt>
+        <dd>
+          <p class="audio-file" data-modal-file-name></p>
+          <audio controls data-modal-audio></audio>
+          <input name="audio_file" type="file" accept="audio/*">
+        </dd>
+      </dl>
+      <div class="actions">
+        <button class="btn btn-primary" type="submit">更新する</button>
+        <button class="btn btn-ghost btn-danger" type="submit" data-modal-delete>削除する</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -253,6 +327,7 @@ require 'header.php';
       <button type="button" class="btn btn-ghost" data-close-modal>閉じる</button>
     </div>
     <form method="post" class="writing-form" enctype="multipart/form-data">
+      <input type="hidden" name="action" value="create">
       <div class="field">
         <label for="audio_file">音声ファイル</label>
         <div class="dropzone" data-dropzone>
@@ -263,11 +338,11 @@ require 'header.php';
       </div>
       <div class="field">
         <label for="writing">writing</label>
-        <textarea id="writing" name="writing" rows="4"></textarea>
+        <textarea id="writing" name="writing" rows="4"><?= h($formValues['writing']); ?></textarea>
       </div>
       <div class="field">
         <label for="writing_notes">writing_notes</label>
-        <textarea id="writing_notes" name="writing_notes" rows="4"></textarea>
+        <textarea id="writing_notes" name="writing_notes" rows="4"><?= h($formValues['writing_notes']); ?></textarea>
       </div>
       <div class="actions">
         <button class="btn btn-primary" type="submit">保存</button>

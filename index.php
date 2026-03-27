@@ -122,11 +122,11 @@ require 'header.php';
       <form method="get" data-filter-form>
         <div class="filter-grid">
           <div class="field">
-            <label for="name">名前検索（line_name / full_name）</label>
+            <label for="name">名前検索（LINE名 / 氏名）</label>
             <input id="name" type="text" name="name" value="<?= h($name); ?>" placeholder="例: 山田">
           </div>
           <div class="field">
-            <label for="video_staff">演者検索（video_staff）</label>
+            <label for="video_staff">演者検索</label>
             <select id="video_staff" name="video_staff">
               <option value="">すべて</option>
               <?php foreach ($videoStaffOptions as $option): ?>
@@ -137,7 +137,7 @@ require 'header.php';
             </select>
           </div>
           <div class="field">
-            <label for="sales_staff">セールス検索（sales_staff）</label>
+            <label for="sales_staff">セールス検索</label>
             <select id="sales_staff" name="sales_staff">
               <option value="">すべて</option>
               <?php foreach ($salesStaffOptions as $option): ?>
@@ -162,10 +162,10 @@ require 'header.php';
         <table class="table">
           <thead>
           <tr>
-            <th>sheet_id</th>
-            <th>entry_point</th>
-            <th>status</th>
-            <th>line_name</th>
+            <th>シートID</th>
+            <th>入口</th>
+            <th>状態</th>
+            <th>LINE名</th>
             <th>操作</th>
           </tr>
           </thead>
