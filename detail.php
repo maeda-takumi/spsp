@@ -90,43 +90,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $isNoFile = !is_array($audioFile) || (int) ($audioFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE;
-    if (!$isUpdate && $isNoFile) {
-        $errors[] = '音声ファイルは必須です。';
-    } elseif (!$isNoFile && (int) $audioFile['error'] !== UPLOAD_ERR_OK) {
-        $errors[] = '音声ファイルのアップロードに失敗しました。';
-    } elseif (!$isNoFile) {
-        $originalName = (string) ($audioFile['name'] ?? '');
-        $extension = strtolower((string) pathinfo($originalName, PATHINFO_EXTENSION));
-        $allowedExtensions = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'webm', 'mp4'];
-        if ($extension !== '' && !in_array($extension, $allowedExtensions, true)) {
-            $errors[] = '対応していない音声ファイル形式です。';
-        }
+    if (!$isDelete) {
+        $isNoFile = !is_array($audioFile) || (int) ($audioFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE;
+        if (!$isUpdate && $isNoFile) {
+            $errors[] = '音声ファイルは必須です。';
+        } elseif (!$isNoFile && (int) $audioFile['error'] !== UPLOAD_ERR_OK) {
+            $errors[] = '音声ファイルのアップロードに失敗しました。';
+        } elseif (!$isNoFile) {
+            $originalName = (string) ($audioFile['name'] ?? '');
+            $extension = strtolower((string) pathinfo($originalName, PATHINFO_EXTENSION));
+            $allowedExtensions = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'webm', 'mp4'];
+            if ($extension !== '' && !in_array($extension, $allowedExtensions, true)) {
+                $errors[] = '対応していない音声ファイル形式です。';
+            }
 
-        $mimeType = (string) ($audioFile['type'] ?? '');
-        if ($mimeType !== '' && strpos($mimeType, 'audio/') !== 0) {
-            $errors[] = '音声ファイルを選択してください。';
-        }
+            $mimeType = (string) ($audioFile['type'] ?? '');
+            if ($mimeType !== '' && strpos($mimeType, 'audio/') !== 0) {
+                $errors[] = '音声ファイルを選択してください。';
+            }
 
-        $maxBytes = 100 * 1024 * 1024;
-        if ((int) ($audioFile['size'] ?? 0) > $maxBytes) {
-            $errors[] = '音声ファイルサイズは100MB以下にしてください。';
-        }
+            $maxBytes = 100 * 1024 * 1024;
+            if ((int) ($audioFile['size'] ?? 0) > $maxBytes) {
+                $errors[] = '音声ファイルサイズは100MB以下にしてください。';
+            }
 
-        if ($errors === []) {
-            $uploadDir = __DIR__ . '/uploads/audio';
-            if (!is_dir($uploadDir) && !mkdir($uploadDir, 0777, true) && !is_dir($uploadDir)) {
-                $errors[] = '保存先フォルダの作成に失敗しました。';
-            } else {
-                $baseName = pathinfo($originalName, PATHINFO_FILENAME);
-                $sanitizedBaseName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $baseName) ?: 'audio';
-                $storedFileName = sprintf('%s_%s_%s.%s', date('Ymd_His'), bin2hex(random_bytes(4)), $sanitizedBaseName, $extension ?: 'dat');
-                $destination = $uploadDir . '/' . $storedFileName;
-
-                if (!move_uploaded_file((string) ($audioFile['tmp_name'] ?? ''), $destination)) {
-                    $errors[] = '音声ファイルの保存に失敗しました。';
+            if ($errors === []) {
+                $uploadDir = __DIR__ . '/uploads/audio';
+                if (!is_dir($uploadDir) && !mkdir($uploadDir, 0777, true) && !is_dir($uploadDir)) {
+                    $errors[] = '保存先フォルダの作成に失敗しました。';
                 } else {
-                    $fileName = 'uploads/audio/' . $storedFileName;
+                    $baseName = pathinfo($originalName, PATHINFO_FILENAME);
+                    $sanitizedBaseName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $baseName) ?: 'audio';
+                    $storedFileName = sprintf('%s_%s_%s.%s', date('Ymd_His'), bin2hex(random_bytes(4)), $sanitizedBaseName, $extension ?: 'dat');
+                    $destination = $uploadDir . '/' . $storedFileName;
+
+                    if (!move_uploaded_file((string) ($audioFile['tmp_name'] ?? ''), $destination)) {
+                        $errors[] = '音声ファイルの保存に失敗しました。';
+                    } else {
+                        $fileName = 'uploads/audio/' . $storedFileName;
+                    }
                 }
             }
         }
@@ -273,6 +275,7 @@ require 'header.php';
                     data-writing="<?= h((string) ($writing['writing'] ?? '')); ?>"
                     data-writing-notes="<?= h((string) ($writing['writing_notes'] ?? '')); ?>"
                     data-file-name="<?= h((string) ($writing['file_name'] ?? '')); ?>"
+                    data-writing-id="<?= h((string) ($writing['id'] ?? '')); ?>"
                   >
                     詳細を見る
                   </button>
