@@ -65,3 +65,56 @@ CREATE TABLE customer_sales_record_writings (
         ON UPDATE CASCADE
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE email_templates (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    template_name VARCHAR(255) NOT NULL,
+    mail_subject VARCHAR(255) NOT NULL,
+    mail_body TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE customer_sales_record_email_drafts (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    customer_sales_record_id BIGINT UNSIGNED NOT NULL,
+    email_template_id BIGINT UNSIGNED NULL,
+    mail_subject VARCHAR(255) NULL,
+    mail_body TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_customer_sales_record_id (customer_sales_record_id),
+    CONSTRAINT fk_customer_sales_record_email_drafts_record_id
+        FOREIGN KEY (customer_sales_record_id)
+        REFERENCES customer_sales_records (id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_customer_sales_record_email_drafts_template_id
+        FOREIGN KEY (email_template_id)
+        REFERENCES email_templates (id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE customer_sales_record_email_send_logs (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    customer_sales_record_id BIGINT UNSIGNED NOT NULL,
+    email_template_id BIGINT UNSIGNED NULL,
+    mail_subject VARCHAR(255) NOT NULL,
+    mail_body TEXT NOT NULL,
+    sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_customer_sales_record_email_send_logs_record_id (customer_sales_record_id),
+    CONSTRAINT fk_customer_sales_record_email_send_logs_record_id
+        FOREIGN KEY (customer_sales_record_id)
+        REFERENCES customer_sales_records (id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_customer_sales_record_email_send_logs_template_id
+        FOREIGN KEY (email_template_id)
+        REFERENCES email_templates (id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

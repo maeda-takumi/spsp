@@ -157,4 +157,91 @@
 
     audioInput.addEventListener('change', updateFileMeta);
   }
+  const emailForm = document.querySelector('[data-email-form]');
+  if (emailForm) {
+    const templateSelect = emailForm.querySelector('[data-template-select]');
+    const mailSubject = emailForm.querySelector('[data-mail-subject]');
+    const mailBody = emailForm.querySelector('[data-mail-body]');
+    const slideConfirmed = emailForm.querySelector('[data-slide-confirmed]');
+    const swipeWrap = emailForm.querySelector('[data-swipe-send]');
+    const swipeThumb = emailForm.querySelector('[data-swipe-thumb]');
+
+    if (templateSelect && mailSubject && mailBody) {
+      templateSelect.addEventListener('change', () => {
+        const selected = templateSelect.options[templateSelect.selectedIndex];
+        if (!selected || templateSelect.value === '') {
+          return;
+        }
+        mailSubject.value = selected.getAttribute('data-template-subject') || '';
+        mailBody.value = selected.getAttribute('data-template-body') || '';
+      });
+    }
+
+    if (swipeWrap && swipeThumb && slideConfirmed) {
+      const track = swipeWrap.querySelector('.swipe-send-track');
+      let isDragging = false;
+      let startX = 0;
+      let startLeft = 4;
+      let maxLeft = 0;
+
+      const resetSwipe = () => {
+        swipeThumb.style.left = '4px';
+        swipeWrap.classList.remove('is-complete');
+        slideConfirmed.value = '0';
+      };
+
+      const onMove = (clientX) => {
+        if (!isDragging || !track) {
+          return;
+        }
+        const nextLeft = Math.min(Math.max(4, startLeft + (clientX - startX)), maxLeft);
+        swipeThumb.style.left = `${nextLeft}px`;
+      };
+
+      const onEnd = () => {
+        if (!isDragging) {
+          return;
+        }
+        isDragging = false;
+        const currentLeft = parseFloat(swipeThumb.style.left || '4');
+        const successThreshold = maxLeft - 8;
+        if (currentLeft >= successThreshold) {
+          swipeThumb.style.left = `${maxLeft}px`;
+          swipeWrap.classList.add('is-complete');
+          slideConfirmed.value = '1';
+
+          const hiddenAction = document.createElement('input');
+          hiddenAction.type = 'hidden';
+          hiddenAction.name = 'action';
+          hiddenAction.value = 'send_email';
+          emailForm.appendChild(hiddenAction);
+          emailForm.submit();
+          return;
+        }
+        resetSwipe();
+      };
+
+      const startDrag = (clientX) => {
+        if (!track) {
+          return;
+        }
+        maxLeft = track.clientWidth - swipeThumb.clientWidth - 4;
+        isDragging = true;
+        startX = clientX;
+        startLeft = parseFloat(swipeThumb.style.left || '4');
+        swipeThumb.style.cursor = 'grabbing';
+      };
+
+      swipeThumb.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        startDrag(event.clientX);
+      });
+
+      window.addEventListener('mousemove', (event) => onMove(event.clientX));
+      window.addEventListener('mouseup', () => {
+        swipeThumb.style.cursor = 'grab';
+        onEnd();
+      });
+    }
+  }
 })();

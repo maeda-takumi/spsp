@@ -43,6 +43,78 @@ if (!$record) {
     exit;
 }
 
+$pdo->exec('CREATE TABLE IF NOT EXISTS email_templates (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    template_name VARCHAR(255) NOT NULL,
+    mail_subject VARCHAR(255) NOT NULL,
+    mail_body TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+
+$pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_drafts (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    customer_sales_record_id BIGINT UNSIGNED NOT NULL,
+    email_template_id BIGINT UNSIGNED NULL,
+    mail_subject VARCHAR(255) NULL,
+    mail_body TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_customer_sales_record_id (customer_sales_record_id),
+    CONSTRAINT fk_customer_sales_record_email_drafts_record_id
+        FOREIGN KEY (customer_sales_record_id)
+        REFERENCES customer_sales_records (id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_customer_sales_record_email_drafts_template_id
+        FOREIGN KEY (email_template_id)
+        REFERENCES email_templates (id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+
+$pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_send_logs (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    customer_sales_record_id BIGINT UNSIGNED NOT NULL,
+    email_template_id BIGINT UNSIGNED NULL,
+    mail_subject VARCHAR(255) NOT NULL,
+    mail_body TEXT NOT NULL,
+    sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_customer_sales_record_email_send_logs_record_id (customer_sales_record_id),
+    CONSTRAINT fk_customer_sales_record_email_send_logs_record_id
+        FOREIGN KEY (customer_sales_record_id)
+        REFERENCES customer_sales_records (id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_customer_sales_record_email_send_logs_template_id
+        FOREIGN KEY (email_template_id)
+        REFERENCES email_templates (id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+
+$recordId = (int) ($record['id'] ?? 0);
+$draftStmt = $pdo->prepare('SELECT email_template_id, mail_subject, mail_body FROM customer_sales_record_email_drafts WHERE customer_sales_record_id = :record_id LIMIT 1');
+$draftStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
+$draftStmt->execute();
+$existingDraft = $draftStmt->fetch() ?: [];
+
+$errors = [];
+$formValues = [
+    'writing' => '',
+    'writing_notes' => '',
+    'email_template_id' => isset($existingDraft['email_template_id']) ? (string) $existingDraft['email_template_id'] : '',
+    'mail_subject' => (string) ($existingDraft['mail_subject'] ?? ''),
+    'mail_body' => (string) ($existingDraft['mail_body'] ?? ''),
+    'template_name' => '',
+    'template_subject' => '',
+    'template_body' => '',
+    'template_id' => '',
+];
+
 $rawEmail = trim((string) ($record['email'] ?? ''));
 $validatedRecipient = filter_var($rawEmail, FILTER_VALIDATE_EMAIL) !== false ? $rawEmail : '';
 
@@ -86,14 +158,109 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $recordId = (int) ($record['id'] ?? 0);
     $isUpdate = $action === 'update';
     $isDelete = $action === 'delete';
+    $isWritingAction = $action === 'create' || $isUpdate || $isDelete;
     $targetWriting = null;
     $fileName = '';
 
-    if (($isUpdate || $isDelete) && $writingId <= 0) {
+    if ($action === 'template_create' || $action === 'template_update' || $action === 'template_delete') {
+        $templateId = (int) ($_POST['template_id'] ?? 0);
+        $templateName = trim((string) ($_POST['template_name'] ?? ''));
+        $templateSubject = trim((string) ($_POST['template_subject'] ?? ''));
+        $templateBody = trim((string) ($_POST['template_body'] ?? ''));
+        $formValues['template_id'] = (string) $templateId;
+        $formValues['template_name'] = $templateName;
+        $formValues['template_subject'] = $templateSubject;
+        $formValues['template_body'] = $templateBody;
+
+        if ($action === 'template_delete') {
+            if ($templateId <= 0) {
+                $errors[] = '削除対象テンプレートが不正です。';
+            } else {
+                $deleteTemplateStmt = $pdo->prepare('DELETE FROM email_templates WHERE id = :id');
+                $deleteTemplateStmt->bindValue(':id', $templateId, PDO::PARAM_INT);
+                $deleteTemplateStmt->execute();
+                header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&template_deleted=1&refresh=' . time() . '#email-compose');
+                exit;
+            }
+        } else {
+            if ($templateName === '' || $templateSubject === '' || $templateBody === '') {
+                $errors[] = 'テンプレート名・件名・本文は必須です。';
+            } elseif ($action === 'template_create') {
+                $createTemplateStmt = $pdo->prepare('INSERT INTO email_templates (template_name, mail_subject, mail_body) VALUES (:template_name, :mail_subject, :mail_body)');
+                $createTemplateStmt->bindValue(':template_name', $templateName);
+                $createTemplateStmt->bindValue(':mail_subject', $templateSubject);
+                $createTemplateStmt->bindValue(':mail_body', $templateBody);
+                $createTemplateStmt->execute();
+                header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&template_saved=1&refresh=' . time() . '#email-compose');
+                exit;
+            } else {
+                if ($templateId <= 0) {
+                    $errors[] = '更新対象テンプレートが不正です。';
+                } else {
+                    $updateTemplateStmt = $pdo->prepare('UPDATE email_templates SET template_name = :template_name, mail_subject = :mail_subject, mail_body = :mail_body WHERE id = :id');
+                    $updateTemplateStmt->bindValue(':template_name', $templateName);
+                    $updateTemplateStmt->bindValue(':mail_subject', $templateSubject);
+                    $updateTemplateStmt->bindValue(':mail_body', $templateBody);
+                    $updateTemplateStmt->bindValue(':id', $templateId, PDO::PARAM_INT);
+                    $updateTemplateStmt->execute();
+                    header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&template_saved=1&refresh=' . time() . '#email-compose');
+                    exit;
+                }
+            }
+        }
+    } elseif ($action === 'save_email_draft' || $action === 'send_email') {
+        $templateId = (int) ($_POST['email_template_id'] ?? 0);
+        $mailSubject = trim((string) ($_POST['mail_subject'] ?? ''));
+        $mailBody = trim((string) ($_POST['mail_body'] ?? ''));
+        $slideConfirmed = (string) ($_POST['slide_confirmed'] ?? '');
+        $formValues['email_template_id'] = $templateId > 0 ? (string) $templateId : '';
+        $formValues['mail_subject'] = $mailSubject;
+        $formValues['mail_body'] = $mailBody;
+
+        if ($mailSubject === '' || $mailBody === '') {
+            $errors[] = '件名と本文を入力してください。';
+        }
+
+        if ($action === 'send_email' && $slideConfirmed !== '1') {
+            $errors[] = '送信スライドを完了してください。';
+        }
+
+        if ($errors === []) {
+            $upsertDraftStmt = $pdo->prepare(
+                'INSERT INTO customer_sales_record_email_drafts (customer_sales_record_id, email_template_id, mail_subject, mail_body)
+                 VALUES (:record_id, :template_id, :mail_subject, :mail_body)
+                 ON DUPLICATE KEY UPDATE email_template_id = VALUES(email_template_id), mail_subject = VALUES(mail_subject), mail_body = VALUES(mail_body)'
+            );
+            $upsertDraftStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
+            $upsertDraftStmt->bindValue(':template_id', $templateId > 0 ? $templateId : null, $templateId > 0 ? PDO::PARAM_INT : PDO::PARAM_NULL);
+            $upsertDraftStmt->bindValue(':mail_subject', $mailSubject);
+            $upsertDraftStmt->bindValue(':mail_body', $mailBody);
+            $upsertDraftStmt->execute();
+
+            if ($action === 'send_email') {
+                $sendLogStmt = $pdo->prepare(
+                    'INSERT INTO customer_sales_record_email_send_logs (customer_sales_record_id, email_template_id, mail_subject, mail_body)
+                     VALUES (:record_id, :template_id, :mail_subject, :mail_body)'
+                );
+                $sendLogStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
+                $sendLogStmt->bindValue(':template_id', $templateId > 0 ? $templateId : null, $templateId > 0 ? PDO::PARAM_INT : PDO::PARAM_NULL);
+                $sendLogStmt->bindValue(':mail_subject', $mailSubject);
+                $sendLogStmt->bindValue(':mail_body', $mailBody);
+                $sendLogStmt->execute();
+                header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&mail_sent=1&refresh=' . time() . '#email-compose');
+                exit;
+            }
+
+            header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&draft_saved=1&refresh=' . time() . '#email-compose');
+            exit;
+        }
+    }
+
+    if ($isWritingAction && ($isUpdate || $isDelete) && $writingId <= 0) {
         $errors[] = '対象データが不正です。';
     }
 
-    if (($isUpdate || $isDelete) && $errors === []) {
+    if ($isWritingAction && ($isUpdate || $isDelete) && $errors === []) {
         $targetStmt = $pdo->prepare('SELECT id, file_name FROM customer_sales_record_writings WHERE id = :id AND sheet_id = :sheet_id LIMIT 1');
         $targetStmt->bindValue(':id', $writingId, PDO::PARAM_INT);
         $targetStmt->bindValue(':sheet_id', $recordId, PDO::PARAM_INT);
@@ -107,7 +274,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    if ($isDelete && $errors === []) {
+    if ($isWritingAction && $isDelete && $errors === []) {
         $deleteStmt = $pdo->prepare('DELETE FROM customer_sales_record_writings WHERE id = :id AND sheet_id = :sheet_id');
         $deleteStmt->bindValue(':id', $writingId, PDO::PARAM_INT);
         $deleteStmt->bindValue(':sheet_id', $recordId, PDO::PARAM_INT);
@@ -117,7 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    if (!$isDelete) {
+    if ($isWritingAction && !$isDelete) {
         $isNoFile = !is_array($audioFile) || (int) ($audioFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE;
         if (!$isUpdate && $isNoFile) {
             $errors[] = '音声ファイルは必須です。';
@@ -161,7 +328,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    if ($errors === []) {
+    if ($isWritingAction && $errors === []) {
         if ($isUpdate) {
             $updateStmt = $pdo->prepare('UPDATE customer_sales_record_writings SET file_name = :file_name, writing = :writing, writing_notes = :writing_notes WHERE id = :id AND sheet_id = :sheet_id');
             $updateStmt->bindValue(':file_name', $fileName);
@@ -191,6 +358,8 @@ $writingsStmt->bindValue(':sheet_id', (int) ($record['id'] ?? 0), PDO::PARAM_INT
 $writingsStmt->execute();
 $writings = $writingsStmt->fetchAll();
 
+$templatesStmt = $pdo->query('SELECT id, template_name, mail_subject, mail_body, updated_at FROM email_templates ORDER BY updated_at DESC, id DESC');
+$emailTemplates = $templatesStmt->fetchAll();
 $customerFields = [
     'sheet_id' => 'シートID',
     'serial_no' => '通し番号',
@@ -387,6 +556,61 @@ require 'header.php';
             </table>
           <?php endif; ?>
         </section>
+      <section id="email-compose" class="panel content-panel detail-panel">
+        <div class="section-head">
+          <h2>メール作成</h2>
+          <button type="button" class="btn btn-icon" data-open-modal="template-editor-modal" aria-label="テンプレート編集">
+            <img src="img/option.png" alt="" loading="lazy">
+          </button>
+        </div>
+
+        <?php if (isset($_GET['template_saved'])): ?>
+          <p class="notice">テンプレートを保存しました。</p>
+        <?php elseif (isset($_GET['template_deleted'])): ?>
+          <p class="notice">テンプレートを削除しました。</p>
+        <?php elseif (isset($_GET['draft_saved'])): ?>
+          <p class="notice">メール下書きを保存しました。</p>
+        <?php elseif (isset($_GET['mail_sent'])): ?>
+          <p class="notice">メール送信を受け付けました。</p>
+        <?php endif; ?>
+
+        <form method="post" class="email-form" data-email-form>
+          <input type="hidden" name="slide_confirmed" value="0" data-slide-confirmed>
+          <div class="field">
+            <label for="email_template_id">テンプレート</label>
+            <select id="email_template_id" name="email_template_id" data-template-select>
+              <option value="">テンプレートを選択</option>
+              <?php foreach ($emailTemplates as $template): ?>
+                <option
+                  value="<?= h((string) $template['id']); ?>"
+                  data-template-subject="<?= h((string) ($template['mail_subject'] ?? '')); ?>"
+                  data-template-body="<?= h((string) ($template['mail_body'] ?? '')); ?>"
+                  <?= $formValues['email_template_id'] === (string) $template['id'] ? 'selected' : ''; ?>
+                >
+                  <?= h((string) ($template['template_name'] ?? '')); ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="field">
+            <label for="mail_subject">件名</label>
+            <input id="mail_subject" name="mail_subject" type="text" value="<?= h($formValues['mail_subject']); ?>" data-mail-subject>
+          </div>
+          <div class="field">
+            <label for="mail_body">本文</label>
+            <textarea id="mail_body" name="mail_body" rows="12" class="mail-body-textarea" data-mail-body><?= h($formValues['mail_body']); ?></textarea>
+          </div>
+          <div class="actions email-actions">
+            <button class="btn btn-ghost" type="submit" name="action" value="save_email_draft">保存</button>
+          </div>
+          <div class="swipe-send" data-swipe-send>
+            <div class="swipe-send-track">
+              <span class="swipe-send-label">→ 右にスワイプして送信</span>
+              <button type="button" class="swipe-send-thumb" aria-label="送信スライダー" data-swipe-thumb>送信</button>
+            </div>
+          </div>
+        </form>
+      </section>
       </div>
     </div>
   </section>
@@ -459,6 +683,62 @@ require 'header.php';
       </div>
       <div class="actions">
         <button class="btn btn-primary" type="submit">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal" id="template-editor-modal" hidden>
+  <div class="modal-dialog panel content-panel">
+    <div class="section-head">
+      <h3>メールテンプレート編集</h3>
+      <button type="button" class="btn btn-ghost" data-close-modal>閉じる</button>
+    </div>
+
+    <?php if ($emailTemplates === []): ?>
+      <p class="empty">テンプレートはまだありません。</p>
+    <?php else: ?>
+      <div class="template-list">
+        <?php foreach ($emailTemplates as $template): ?>
+          <form method="post" class="template-item">
+            <input type="hidden" name="template_id" value="<?= h((string) $template['id']); ?>">
+            <div class="field">
+              <label>テンプレート名</label>
+              <input type="text" name="template_name" value="<?= h((string) ($template['template_name'] ?? '')); ?>" required>
+            </div>
+            <div class="field">
+              <label>件名</label>
+              <input type="text" name="template_subject" value="<?= h((string) ($template['mail_subject'] ?? '')); ?>" required>
+            </div>
+            <div class="field">
+              <label>本文</label>
+              <textarea name="template_body" rows="6" required><?= h((string) ($template['mail_body'] ?? '')); ?></textarea>
+            </div>
+            <div class="actions">
+              <button class="btn btn-primary" type="submit" name="action" value="template_update">更新</button>
+              <button class="btn btn-ghost btn-danger" type="submit" name="action" value="template_delete">削除</button>
+            </div>
+          </form>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
+
+    <hr class="template-divider">
+    <form method="post" class="template-item">
+      <h4>テンプレート追加</h4>
+      <div class="field">
+        <label>テンプレート名</label>
+        <input type="text" name="template_name" value="<?= h($formValues['template_name']); ?>" required>
+      </div>
+      <div class="field">
+        <label>件名</label>
+        <input type="text" name="template_subject" value="<?= h($formValues['template_subject']); ?>" required>
+      </div>
+      <div class="field">
+        <label>本文</label>
+        <textarea name="template_body" rows="6" required><?= h($formValues['template_body']); ?></textarea>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" type="submit" name="action" value="template_create">追加</button>
       </div>
     </form>
   </div>

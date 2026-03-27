@@ -539,6 +539,102 @@ audio {
   border-color: rgba(220, 38, 38, 0.3);
   color: #b91c1c;
 }
+.btn-icon {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 50%;
+  border-color: #d2e1fe;
+  background: #fff;
+}
+
+.btn-icon img {
+  width: 20px;
+  height: 20px;
+}
+
+.mail-body-textarea {
+  min-height: 380px;
+}
+
+.email-form .field + .field {
+  margin-top: 10px;
+}
+
+.swipe-send {
+  margin-top: 14px;
+}
+
+.swipe-send-track {
+  position: relative;
+  height: 56px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e7efff, #d5e6ff);
+  border: 1px solid #c9dcff;
+  overflow: hidden;
+  user-select: none;
+}
+
+.swipe-send-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #3253a3;
+  font-weight: 600;
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+.swipe-send-thumb {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 98px;
+  height: 48px;
+  border-radius: 999px;
+  border: 0;
+  background: #2b68ff;
+  color: #fff;
+  font-weight: 700;
+  cursor: grab;
+  transition: left 0.18s ease;
+}
+
+.swipe-send.is-complete .swipe-send-thumb {
+  background: #0f9f54;
+}
+
+.template-list {
+  display: grid;
+  gap: 12px;
+}
+
+.template-item {
+  border: 1px solid #d7e5ff;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fbff;
+}
+
+.template-item .field + .field {
+  margin-top: 8px;
+}
+
+.template-item textarea,
+.template-item input {
+  width: 100%;
+  border: 1px solid #d2e1fe;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.template-divider {
+  border: 0;
+  border-top: 1px solid #d7e5ff;
+  margin: 16px 0;
+}
+
 .mail-panel .mail-form {
   display: grid;
   gap: 10px;
