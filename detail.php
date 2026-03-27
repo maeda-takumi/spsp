@@ -114,39 +114,6 @@ $formValues = [
     'template_body' => '',
     'template_id' => '',
 ];
-
-$rawEmail = trim((string) ($record['email'] ?? ''));
-$validatedRecipient = filter_var($rawEmail, FILTER_VALIDATE_EMAIL) !== false ? $rawEmail : '';
-
-$mailTemplates = [
-    [
-        'id' => 'hearing_followup',
-        'label' => '初回面談フォロー',
-        'subject' => '【ご確認】本日の面談内容について',
-        'body' => "お世話になっております。\n本日は面談のお時間をいただき、ありがとうございました。\n本日の内容をもとに、次回までのご対応事項をご確認いただけますと幸いです。",
-    ],
-    [
-        'id' => 'next_step',
-        'label' => '次回アクション案内',
-        'subject' => '【ご案内】次回までのアクションについて',
-        'body' => "お世話になっております。\n次回面談までにご対応いただきたい項目をお送りします。\nご不明点がございましたらご連絡ください。",
-    ],
-    [
-        'id' => 'thanks',
-        'label' => 'お礼連絡',
-        'subject' => '【御礼】面談ありがとうございました',
-        'body' => "お世話になっております。\n本日はお時間をいただき、ありがとうございました。\n今後ともどうぞよろしくお願いいたします。",
-    ],
-];
-
-$defaultTemplateId = (string) ($mailTemplates[0]['id'] ?? '');
-$defaultSubject = (string) ($mailTemplates[0]['subject'] ?? '');
-$defaultBody = (string) ($mailTemplates[0]['body'] ?? '');
-$errors = [];
-$formValues = [
-    'writing' => '',
-    'writing_notes' => '',
-];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? 'create');
     $writingId = (int) ($_POST['writing_id'] ?? 0);
@@ -426,75 +393,62 @@ require 'header.php';
       </section>
 
       <div class="detail-right-stack">
-        <section id="mail-panel" class="panel content-panel detail-panel mail-panel">
-          <h2>メール送信</h2>
-          <form class="mail-form" data-mail-form>
+        <section id="email-compose" class="panel content-panel detail-panel">
+          <div class="section-head">
+            <h2>メール作成</h2>
+            <button type="button" class="btn btn-icon" data-open-modal="template-editor-modal" aria-label="テンプレート編集">
+              <img src="img/option.png" alt="" loading="lazy">
+            </button>
+          </div>
+
+          <?php if (isset($_GET['template_saved'])): ?>
+            <p class="notice">テンプレートを保存しました。</p>
+          <?php elseif (isset($_GET['template_deleted'])): ?>
+            <p class="notice">テンプレートを削除しました。</p>
+          <?php elseif (isset($_GET['draft_saved'])): ?>
+            <p class="notice">メール下書きを保存しました。</p>
+          <?php elseif (isset($_GET['mail_sent'])): ?>
+            <p class="notice">メール送信を受け付けました。</p>
+          <?php endif; ?>
+
+          <form method="post" class="email-form" data-email-form>
+            <input type="hidden" name="slide_confirmed" value="0" data-slide-confirmed>
             <div class="field">
-              <label for="mail_template">テンプレート</label>
-              <select
-                id="mail_template"
-                name="mail_template"
-                data-mail-template
-              >
-                <?php foreach ($mailTemplates as $template): ?>
+              <label for="email_template_id">テンプレート</label>
+              <select id="email_template_id" name="email_template_id" data-template-select>
+                <option value="">テンプレートを選択</option>
+                <?php foreach ($emailTemplates as $template): ?>
                   <option
-                    value="<?= h((string) ($template['id'] ?? '')); ?>"
-                    data-mail-subject="<?= h((string) ($template['subject'] ?? '')); ?>"
-                    data-mail-body="<?= h((string) ($template['body'] ?? '')); ?>"
-                    <?= ((string) ($template['id'] ?? '') === $defaultTemplateId) ? 'selected' : ''; ?>
+                    value="<?= h((string) $template['id']); ?>"
+                    data-template-subject="<?= h((string) ($template['mail_subject'] ?? '')); ?>"
+                    data-template-body="<?= h((string) ($template['mail_body'] ?? '')); ?>"
+                    <?= $formValues['email_template_id'] === (string) $template['id'] ? 'selected' : ''; ?>
                   >
-                    <?= h((string) ($template['label'] ?? 'テンプレート')); ?>
+                    <?= h((string) ($template['template_name'] ?? '')); ?>
                   </option>
                 <?php endforeach; ?>
               </select>
             </div>
 
             <div class="field">
-              <label for="mail_to">宛先</label>
-              <input
-                id="mail_to"
-                type="email"
-                name="mail_to"
-                value="<?= h($validatedRecipient); ?>"
-                placeholder="宛先メールアドレス"
-                data-mail-to
-              >
-            </div>
-
-            <div class="field">
               <label for="mail_subject">件名</label>
-              <input
-                id="mail_subject"
-                type="text"
-                name="mail_subject"
-                value="<?= h($defaultSubject); ?>"
-                placeholder="件名を入力"
-                data-mail-subject-input
-              >
+              <input id="mail_subject" name="mail_subject" type="text" value="<?= h($formValues['mail_subject']); ?>" data-mail-subject>
             </div>
 
             <div class="field">
               <label for="mail_body">本文</label>
-              <textarea
-                id="mail_body"
-                name="mail_body"
-                rows="5"
-                data-mail-body-input
-              ><?= h($defaultBody); ?></textarea>
+              <textarea id="mail_body" name="mail_body" rows="12" class="mail-body-textarea" data-mail-body><?= h($formValues['mail_body']); ?></textarea>
             </div>
 
-            <div class="field">
-              <label for="mail_attachments">添付ファイル（複数可）</label>
-              <input
-                id="mail_attachments"
-                type="file"
-                name="mail_attachments[]"
-                multiple
-              >
+            <div class="actions email-actions">
+              <button class="btn btn-ghost" type="submit" name="action" value="save_email_draft">保存</button>
             </div>
 
-            <div class="actions">
-              <button class="btn btn-primary" type="button">送信</button>
+            <div class="swipe-send" data-swipe-send>
+              <div class="swipe-send-track">
+                <span class="swipe-send-label">→ 右にスワイプして送信</span>
+                <button type="button" class="swipe-send-thumb" aria-label="送信スライダー" data-swipe-thumb>送信</button>
+              </div>
             </div>
           </form>
         </section>
@@ -556,61 +510,6 @@ require 'header.php';
             </table>
           <?php endif; ?>
         </section>
-      <section id="email-compose" class="panel content-panel detail-panel">
-        <div class="section-head">
-          <h2>メール作成</h2>
-          <button type="button" class="btn btn-icon" data-open-modal="template-editor-modal" aria-label="テンプレート編集">
-            <img src="img/option.png" alt="" loading="lazy">
-          </button>
-        </div>
-
-        <?php if (isset($_GET['template_saved'])): ?>
-          <p class="notice">テンプレートを保存しました。</p>
-        <?php elseif (isset($_GET['template_deleted'])): ?>
-          <p class="notice">テンプレートを削除しました。</p>
-        <?php elseif (isset($_GET['draft_saved'])): ?>
-          <p class="notice">メール下書きを保存しました。</p>
-        <?php elseif (isset($_GET['mail_sent'])): ?>
-          <p class="notice">メール送信を受け付けました。</p>
-        <?php endif; ?>
-
-        <form method="post" class="email-form" data-email-form>
-          <input type="hidden" name="slide_confirmed" value="0" data-slide-confirmed>
-          <div class="field">
-            <label for="email_template_id">テンプレート</label>
-            <select id="email_template_id" name="email_template_id" data-template-select>
-              <option value="">テンプレートを選択</option>
-              <?php foreach ($emailTemplates as $template): ?>
-                <option
-                  value="<?= h((string) $template['id']); ?>"
-                  data-template-subject="<?= h((string) ($template['mail_subject'] ?? '')); ?>"
-                  data-template-body="<?= h((string) ($template['mail_body'] ?? '')); ?>"
-                  <?= $formValues['email_template_id'] === (string) $template['id'] ? 'selected' : ''; ?>
-                >
-                  <?= h((string) ($template['template_name'] ?? '')); ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-          <div class="field">
-            <label for="mail_subject">件名</label>
-            <input id="mail_subject" name="mail_subject" type="text" value="<?= h($formValues['mail_subject']); ?>" data-mail-subject>
-          </div>
-          <div class="field">
-            <label for="mail_body">本文</label>
-            <textarea id="mail_body" name="mail_body" rows="12" class="mail-body-textarea" data-mail-body><?= h($formValues['mail_body']); ?></textarea>
-          </div>
-          <div class="actions email-actions">
-            <button class="btn btn-ghost" type="submit" name="action" value="save_email_draft">保存</button>
-          </div>
-          <div class="swipe-send" data-swipe-send>
-            <div class="swipe-send-track">
-              <span class="swipe-send-label">→ 右にスワイプして送信</span>
-              <button type="button" class="swipe-send-thumb" aria-label="送信スライダー" data-swipe-thumb>送信</button>
-            </div>
-          </div>
-        </form>
-      </section>
       </div>
     </div>
   </section>
