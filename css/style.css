@@ -639,7 +639,7 @@ audio {
   display: grid;
   gap: 10px;
 }
-
+#mail_body,
 .mail-panel textarea {
   width: 100%;
   border: 1px solid #d2e1fe;
