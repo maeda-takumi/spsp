@@ -23,6 +23,170 @@ function db(): PDO
     ]);
 }
 
+const GOOGLE_OAUTH_TOKEN_FILE = __DIR__ . '/download/google_oauth_token.json';
+const FALLBACK_MAIL_TO = 'systemsoufu@gmail.com';
+const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
+
+function requestJson(string $url, array $headers = [], ?string $body = null): array
+{
+    $curl = curl_init($url);
+    if ($curl === false) {
+        throw new RuntimeException('cURLの初期化に失敗しました。');
+    }
+
+    curl_setopt_array($curl, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 20,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_POST => $body !== null,
+        CURLOPT_POSTFIELDS => $body,
+    ]);
+
+    $raw = curl_exec($curl);
+    $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+    $error = curl_error($curl);
+    curl_close($curl);
+
+    if ($raw === false) {
+        throw new RuntimeException('HTTP通信に失敗しました。' . ($error !== '' ? ' ' . $error : ''));
+    }
+
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        throw new RuntimeException('APIレスポンスの解析に失敗しました。');
+    }
+
+    return [
+        'status' => $status,
+        'json' => $decoded,
+    ];
+}
+
+function getGmailAccessToken(): string
+{
+    if (!is_file(GOOGLE_OAUTH_TOKEN_FILE)) {
+        throw new RuntimeException('Google OAuthトークンファイルが見つかりません。');
+    }
+
+    $raw = file_get_contents(GOOGLE_OAUTH_TOKEN_FILE);
+    if ($raw === false) {
+        throw new RuntimeException('Google OAuthトークンファイルの読み込みに失敗しました。');
+    }
+
+    $tokenData = json_decode($raw, true);
+    if (!is_array($tokenData)) {
+        throw new RuntimeException('Google OAuthトークンファイルのJSON形式が不正です。');
+    }
+
+    $appData = [];
+    if (isset($tokenData['installed']) && is_array($tokenData['installed'])) {
+        $appData = $tokenData['installed'];
+    } elseif (isset($tokenData['web']) && is_array($tokenData['web'])) {
+        $appData = $tokenData['web'];
+    }
+
+    $clientId = (string) ($tokenData['client_id'] ?? $appData['client_id'] ?? '');
+    $clientSecret = (string) ($tokenData['client_secret'] ?? $appData['client_secret'] ?? '');
+    $refreshToken = (string) ($tokenData['refresh_token'] ?? '');
+    $tokenUri = (string) ($tokenData['token_uri'] ?? $appData['token_uri'] ?? 'https://oauth2.googleapis.com/token');
+
+    if ($clientId === '' || $clientSecret === '' || $refreshToken === '') {
+        throw new RuntimeException('Google OAuthトークンファイルに client_id / client_secret / refresh_token が不足しています。');
+    }
+
+    $body = http_build_query([
+        'client_id' => $clientId,
+        'client_secret' => $clientSecret,
+        'refresh_token' => $refreshToken,
+        'grant_type' => 'refresh_token',
+        'scope' => GMAIL_SEND_SCOPE,
+    ]);
+
+    $response = requestJson($tokenUri, ['Content-Type: application/x-www-form-urlencoded'], $body);
+    if (($response['status'] ?? 500) >= 300) {
+        $description = (string) (($response['json']['error_description'] ?? '') ?: ($response['json']['error'] ?? 'アクセストークンの取得に失敗しました。'));
+        throw new RuntimeException($description);
+    }
+
+    $accessToken = (string) ($response['json']['access_token'] ?? '');
+    if ($accessToken === '') {
+        throw new RuntimeException('アクセストークンの取得結果が不正です。');
+    }
+
+    return $accessToken;
+}
+
+function buildGmailRawMessage(string $to, string $subject, string $body, array $attachments = []): string
+{
+    $encodedSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
+    $headers = [
+        'To: ' . $to,
+        'Subject: ' . $encodedSubject,
+        'MIME-Version: 1.0',
+    ];
+
+    if ($attachments === []) {
+        $headers[] = 'Content-Type: text/plain; charset=UTF-8';
+        $headers[] = 'Content-Transfer-Encoding: base64';
+        $raw = implode("\r\n", $headers) . "\r\n\r\n" . chunk_split(base64_encode($body));
+        return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
+    }
+
+    $boundary = 'boundary_' . bin2hex(random_bytes(12));
+    $headers[] = 'Content-Type: multipart/mixed; boundary="' . $boundary . '"';
+    $parts = [];
+    $parts[] = '--' . $boundary;
+    $parts[] = 'Content-Type: text/plain; charset=UTF-8';
+    $parts[] = 'Content-Transfer-Encoding: base64';
+    $parts[] = '';
+    $parts[] = trim(chunk_split(base64_encode($body)));
+
+    foreach ($attachments as $attachment) {
+        $fileName = (string) ($attachment['file_name'] ?? '');
+        $fileContent = $attachment['content'] ?? '';
+        if ($fileName === '' || !is_string($fileContent) || $fileContent === '') {
+            continue;
+        }
+        $mimeType = (string) ($attachment['mime_type'] ?? 'application/octet-stream');
+        $encodedFileName = '=?UTF-8?B?' . base64_encode($fileName) . '?=';
+        $parts[] = '--' . $boundary;
+        $parts[] = 'Content-Type: ' . $mimeType . '; name="' . $encodedFileName . '"';
+        $parts[] = 'Content-Disposition: attachment; filename="' . $encodedFileName . '"';
+        $parts[] = 'Content-Transfer-Encoding: base64';
+        $parts[] = '';
+        $parts[] = trim(chunk_split(base64_encode($fileContent)));
+    }
+
+    $parts[] = '--' . $boundary . '--';
+    $raw = implode("\r\n", $headers) . "\r\n\r\n" . implode("\r\n", $parts) . "\r\n";
+    return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
+}
+
+function sendWithGmailApi(string $to, string $subject, string $body, array $attachments = []): void
+{
+    $accessToken = getGmailAccessToken();
+    $payload = json_encode([
+        'raw' => buildGmailRawMessage($to, $subject, $body, $attachments),
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if (!is_string($payload)) {
+        throw new RuntimeException('メール送信ペイロードの作成に失敗しました。');
+    }
+
+    $response = requestJson(
+        'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+        [
+            'Authorization: Bearer ' . $accessToken,
+            'Content-Type: application/json',
+        ],
+        $payload
+    );
+
+    if (($response['status'] ?? 500) >= 300) {
+        $message = (string) (($response['json']['error']['message'] ?? '') ?: 'Gmail APIでの送信に失敗しました。');
+        throw new RuntimeException($message);
+    }
+}
+
 $sheetId = trim((string) ($_GET['sheet_id'] ?? ''));
 if ($sheetId === '') {
     http_response_code(400);
@@ -152,7 +316,7 @@ $existingDraft = $draftStmt->fetch() ?: [];
 $attachmentStmt = $pdo->prepare('SELECT id, file_name, file_path, created_at FROM customer_sales_record_email_attachments WHERE customer_sales_record_id = :record_id ORDER BY created_at DESC, id DESC');
 $attachmentStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
 $attachmentStmt->execute();
-$existingAttachments = $attachmentStmt->fetchAll();
+$defaultMailTo = FALLBACK_MAIL_TO;
 
 $defaultMailTo = '';
 if (filter_var((string) ($record['email'] ?? ''), FILTER_VALIDATE_EMAIL)) {
@@ -386,6 +550,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($errors !== []) {
                 $attachmentStmt->execute();
                 $existingAttachments = $attachmentStmt->fetchAll();
+            }
+
+            if ($errors === [] && $action === 'send_email') {
+                $attachmentsForSendStmt = $pdo->prepare(
+                    'SELECT file_name, file_path FROM customer_sales_record_email_attachments WHERE customer_sales_record_id = :record_id ORDER BY created_at ASC, id ASC'
+                );
+                $attachmentsForSendStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
+                $attachmentsForSendStmt->execute();
+                $attachmentsForSendRows = $attachmentsForSendStmt->fetchAll();
+                $attachmentsForSend = [];
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                foreach ($attachmentsForSendRows as $attachmentRow) {
+                    $fileName = (string) ($attachmentRow['file_name'] ?? '');
+                    $relativePath = (string) ($attachmentRow['file_path'] ?? '');
+                    $absolutePath = __DIR__ . '/' . ltrim($relativePath, '/');
+                    if ($fileName === '' || $relativePath === '' || !is_file($absolutePath)) {
+                        continue;
+                    }
+                    $content = file_get_contents($absolutePath);
+                    if (!is_string($content) || $content === '') {
+                        continue;
+                    }
+                    $mimeType = $finfo !== false ? (string) finfo_file($finfo, $absolutePath) : '';
+                    if ($mimeType === '') {
+                        $mimeType = 'application/octet-stream';
+                    }
+                    $attachmentsForSend[] = [
+                        'file_name' => $fileName,
+                        'content' => $content,
+                        'mime_type' => $mimeType,
+                    ];
+                }
+                if ($finfo !== false) {
+                    finfo_close($finfo);
+                }
+
+                try {
+                    sendWithGmailApi($mailTo, $mailSubject, $mailBody, $attachmentsForSend);
+                } catch (Throwable $e) {
+                    $errors[] = 'メール送信に失敗しました。' . $e->getMessage();
+                }
             }
 
             if ($errors === [] && $action === 'send_email') {
