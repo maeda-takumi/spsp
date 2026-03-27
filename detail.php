@@ -43,6 +43,33 @@ if (!$record) {
     exit;
 }
 
+$rawEmail = trim((string) ($record['email'] ?? ''));
+$validatedRecipient = filter_var($rawEmail, FILTER_VALIDATE_EMAIL) !== false ? $rawEmail : '';
+
+$mailTemplates = [
+    [
+        'id' => 'hearing_followup',
+        'label' => '初回面談フォロー',
+        'subject' => '【ご確認】本日の面談内容について',
+        'body' => "お世話になっております。\n本日は面談のお時間をいただき、ありがとうございました。\n本日の内容をもとに、次回までのご対応事項をご確認いただけますと幸いです。",
+    ],
+    [
+        'id' => 'next_step',
+        'label' => '次回アクション案内',
+        'subject' => '【ご案内】次回までのアクションについて',
+        'body' => "お世話になっております。\n次回面談までにご対応いただきたい項目をお送りします。\nご不明点がございましたらご連絡ください。",
+    ],
+    [
+        'id' => 'thanks',
+        'label' => 'お礼連絡',
+        'subject' => '【御礼】面談ありがとうございました',
+        'body' => "お世話になっております。\n本日はお時間をいただき、ありがとうございました。\n今後ともどうぞよろしくお願いいたします。",
+    ],
+];
+
+$defaultTemplateId = (string) ($mailTemplates[0]['id'] ?? '');
+$defaultSubject = (string) ($mailTemplates[0]['subject'] ?? '');
+$defaultBody = (string) ($mailTemplates[0]['body'] ?? '');
 $errors = [];
 $formValues = [
     'writing' => '',
@@ -229,63 +256,138 @@ require 'header.php';
         </div>
       </section>
 
-      <section id="writing-list" class="panel content-panel detail-panel">
-        <div class="section-head">
-          <h2>サポート面談記録</h2>
-          <button type="button" class="btn btn-primary" data-open-modal="create-writing-modal">追加</button>
-        </div>
-
-        <?php if (isset($_GET['saved'])): ?>
-          <p class="notice">保存しました。</p>
-        <?php elseif (isset($_GET['updated'])): ?>
-          <p class="notice">更新しました。</p>
-        <?php elseif (isset($_GET['deleted'])): ?>
-          <p class="notice">削除しました。</p>
-        <?php endif; ?>
-
-        <?php if ($errors !== []): ?>
-          <ul class="error-list">
-            <?php foreach ($errors as $error): ?>
-              <li><?= h($error); ?></li>
-            <?php endforeach; ?>
-          </ul>
-        <?php endif; ?>
-
-        <?php if ($writings === []): ?>
-          <p class="empty">サポート面談記録が登録されていません。</p>
-        <?php else: ?>
-          <table class="table">
-            <thead>
-            <tr>
-              <th>ID</th>
-              <th>登録日</th>
-              <th>操作</th>
-            </tr>
-            </thead>
-            <tbody>
-            <?php foreach ($writings as $writing): ?>
-              <tr>
-                <td><?= h((string) ($writing['id'] ?? '')); ?></td>
-                <td><?= h((string) ($writing['updated_at'] ?? '')); ?></td>
-                <td>
-                  <button
-                    type="button"
-                    class="btn btn-ghost"
-                    data-open-modal="writing-modal"
-                    data-writing="<?= h((string) ($writing['writing'] ?? '')); ?>"
-                    data-writing-notes="<?= h((string) ($writing['writing_notes'] ?? '')); ?>"
-                    data-file-name="<?= h((string) ($writing['file_name'] ?? '')); ?>"
-                    data-writing-id="<?= h((string) ($writing['id'] ?? '')); ?>"
+      <div class="detail-right-stack">
+        <section id="mail-panel" class="panel content-panel detail-panel mail-panel">
+          <h2>メール送信</h2>
+          <form class="mail-form" data-mail-form>
+            <div class="field">
+              <label for="mail_template">テンプレート</label>
+              <select
+                id="mail_template"
+                name="mail_template"
+                data-mail-template
+              >
+                <?php foreach ($mailTemplates as $template): ?>
+                  <option
+                    value="<?= h((string) ($template['id'] ?? '')); ?>"
+                    data-mail-subject="<?= h((string) ($template['subject'] ?? '')); ?>"
+                    data-mail-body="<?= h((string) ($template['body'] ?? '')); ?>"
+                    <?= ((string) ($template['id'] ?? '') === $defaultTemplateId) ? 'selected' : ''; ?>
                   >
-                    詳細を見る
-                  </button>
-                </td>
+                    <?= h((string) ($template['label'] ?? 'テンプレート')); ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="mail_to">宛先</label>
+              <input
+                id="mail_to"
+                type="email"
+                name="mail_to"
+                value="<?= h($validatedRecipient); ?>"
+                placeholder="宛先メールアドレス"
+                data-mail-to
+              >
+            </div>
+
+            <div class="field">
+              <label for="mail_subject">件名</label>
+              <input
+                id="mail_subject"
+                type="text"
+                name="mail_subject"
+                value="<?= h($defaultSubject); ?>"
+                placeholder="件名を入力"
+                data-mail-subject-input
+              >
+            </div>
+
+            <div class="field">
+              <label for="mail_body">本文</label>
+              <textarea
+                id="mail_body"
+                name="mail_body"
+                rows="5"
+                data-mail-body-input
+              ><?= h($defaultBody); ?></textarea>
+            </div>
+
+            <div class="field">
+              <label for="mail_attachments">添付ファイル（複数可）</label>
+              <input
+                id="mail_attachments"
+                type="file"
+                name="mail_attachments[]"
+                multiple
+              >
+            </div>
+
+            <div class="actions">
+              <button class="btn btn-primary" type="button">送信</button>
+            </div>
+          </form>
+        </section>
+
+        <section id="writing-list" class="panel content-panel detail-panel">
+          <div class="section-head">
+            <h2>サポート面談記録</h2>
+            <button type="button" class="btn btn-primary" data-open-modal="create-writing-modal">追加</button>
+          </div>
+
+          <?php if (isset($_GET['saved'])): ?>
+            <p class="notice">保存しました。</p>
+          <?php elseif (isset($_GET['updated'])): ?>
+            <p class="notice">更新しました。</p>
+          <?php elseif (isset($_GET['deleted'])): ?>
+            <p class="notice">削除しました。</p>
+          <?php endif; ?>
+
+          <?php if ($errors !== []): ?>
+            <ul class="error-list">
+              <?php foreach ($errors as $error): ?>
+                <li><?= h($error); ?></li>
+              <?php endforeach; ?>
+            </ul>
+          <?php endif; ?>
+
+          <?php if ($writings === []): ?>
+            <p class="empty">サポート面談記録が登録されていません。</p>
+          <?php else: ?>
+            <table class="table">
+              <thead>
+              <tr>
+                <th>ID</th>
+                <th>登録日</th>
+                <th>操作</th>
               </tr>
-            <?php endforeach; ?>
-            </tbody>
-          </table>
-        <?php endif; ?>
-      </section>
+              </thead>
+              <tbody>
+              <?php foreach ($writings as $writing): ?>
+                <tr>
+                  <td><?= h((string) ($writing['id'] ?? '')); ?></td>
+                  <td><?= h((string) ($writing['updated_at'] ?? '')); ?></td>
+                  <td>
+                    <button
+                      type="button"
+                      class="btn btn-ghost"
+                      data-open-modal="writing-modal"
+                      data-writing="<?= h((string) ($writing['writing'] ?? '')); ?>"
+                      data-writing-notes="<?= h((string) ($writing['writing_notes'] ?? '')); ?>"
+                      data-file-name="<?= h((string) ($writing['file_name'] ?? '')); ?>"
+                      data-writing-id="<?= h((string) ($writing['id'] ?? '')); ?>"
+                    >
+                      詳細を見る
+                    </button>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+              </tbody>
+            </table>
+          <?php endif; ?>
+        </section>
+      </div>
     </div>
   </section>
 </div>

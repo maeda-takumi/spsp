@@ -11,6 +11,23 @@
     }
   }
 
+  const mailTemplate = document.querySelector('[data-mail-template]');
+  const mailSubjectInput = document.querySelector('[data-mail-subject-input]');
+  const mailBodyInput = document.querySelector('[data-mail-body-input]');
+  if (mailTemplate && mailSubjectInput && mailBodyInput) {
+    const applyTemplate = () => {
+      const selected = mailTemplate.options[mailTemplate.selectedIndex];
+      if (!selected) {
+        return;
+      }
+      const subject = selected.getAttribute('data-mail-subject') || '';
+      const body = selected.getAttribute('data-mail-body') || '';
+      mailSubjectInput.value = subject;
+      mailBodyInput.value = body;
+    };
+
+    mailTemplate.addEventListener('change', applyTemplate);
+  }
   const openButtons = document.querySelectorAll('[data-open-modal]');
   if (openButtons.length === 0) {
     return;
