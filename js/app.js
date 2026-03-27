@@ -76,4 +76,45 @@
       }
     });
   });
+  const dropzone = document.querySelector('[data-dropzone]');
+  const audioInput = document.querySelector('[data-audio-input]');
+  const fileMeta = document.querySelector('[data-file-meta]');
+
+  if (dropzone && audioInput) {
+    const updateFileMeta = () => {
+      if (!fileMeta) {
+        return;
+      }
+      if (audioInput.files && audioInput.files.length > 0) {
+        fileMeta.textContent = `選択中: ${audioInput.files[0].name}`;
+      } else {
+        fileMeta.textContent = '未選択';
+      }
+    };
+
+    ['dragenter', 'dragover'].forEach((eventName) => {
+      dropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropzone.classList.add('is-dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach((eventName) => {
+      dropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropzone.classList.remove('is-dragover');
+      });
+    });
+
+    dropzone.addEventListener('drop', (event) => {
+      const files = event.dataTransfer ? event.dataTransfer.files : null;
+      if (!files || files.length === 0) {
+        return;
+      }
+      audioInput.files = files;
+      updateFileMeta();
+    });
+
+    audioInput.addEventListener('change', updateFileMeta);
+  }
 })();

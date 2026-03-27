@@ -41,12 +41,50 @@ if (!$record) {
 
 $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $fileName = trim((string) ($_POST['file_name'] ?? ''));
+    $fileName = '';
     $writing = trim((string) ($_POST['writing'] ?? ''));
     $writingNotes = trim((string) ($_POST['writing_notes'] ?? ''));
+    $audioFile = $_FILES['audio_file'] ?? null;
 
-    if ($fileName === '') {
-        $errors[] = '音声ファイル名（URL）は必須です。';
+    if (!is_array($audioFile) || (int) ($audioFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        $errors[] = '音声ファイルは必須です。';
+    } elseif ((int) $audioFile['error'] !== UPLOAD_ERR_OK) {
+        $errors[] = '音声ファイルのアップロードに失敗しました。';
+    } else {
+        $originalName = (string) ($audioFile['name'] ?? '');
+        $extension = strtolower((string) pathinfo($originalName, PATHINFO_EXTENSION));
+        $allowedExtensions = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'webm', 'mp4'];
+        if ($extension !== '' && !in_array($extension, $allowedExtensions, true)) {
+            $errors[] = '対応していない音声ファイル形式です。';
+        }
+
+        $mimeType = (string) ($audioFile['type'] ?? '');
+        if ($mimeType !== '' && strpos($mimeType, 'audio/') !== 0) {
+            $errors[] = '音声ファイルを選択してください。';
+        }
+
+        $maxBytes = 100 * 1024 * 1024;
+        if ((int) ($audioFile['size'] ?? 0) > $maxBytes) {
+            $errors[] = '音声ファイルサイズは100MB以下にしてください。';
+        }
+
+        if ($errors === []) {
+            $uploadDir = __DIR__ . '/uploads/audio';
+            if (!is_dir($uploadDir) && !mkdir($uploadDir, 0777, true) && !is_dir($uploadDir)) {
+                $errors[] = '保存先フォルダの作成に失敗しました。';
+            } else {
+                $baseName = pathinfo($originalName, PATHINFO_FILENAME);
+                $sanitizedBaseName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $baseName) ?: 'audio';
+                $storedFileName = sprintf('%s_%s_%s.%s', date('Ymd_His'), bin2hex(random_bytes(4)), $sanitizedBaseName, $extension ?: 'dat');
+                $destination = $uploadDir . '/' . $storedFileName;
+
+                if (!move_uploaded_file((string) ($audioFile['tmp_name'] ?? ''), $destination)) {
+                    $errors[] = '音声ファイルの保存に失敗しました。';
+                } else {
+                    $fileName = 'uploads/audio/' . $storedFileName;
+                }
+            }
+        }
     }
 
     if ($errors === []) {
@@ -119,70 +157,72 @@ require 'header.php';
   </aside>
 
   <section class="main-panel detail-main-panel">
-    <section id="customer-info" class="panel content-panel detail-panel">
-      <h2>顧客情報</h2>
-      <div class="customer-grid">
-        <?php foreach ($customerFields as $field => $label): ?>
-          <article class="customer-item">
-            <span><?= h($label); ?></span>
-            <strong><?= h((string) ($record[$field] ?? '')); ?></strong>
-          </article>
-        <?php endforeach; ?>
-      </div>
-    </section>
-
-    <section id="writing-list" class="panel content-panel detail-panel">
-      <div class="section-head">
-        <h2>customer_sales_record_writings</h2>
-        <button type="button" class="btn btn-primary" data-open-modal="create-writing-modal">追加</button>
-      </div>
-
-      <?php if (isset($_GET['saved'])): ?>
-        <p class="notice">保存しました。</p>
-      <?php endif; ?>
-
-      <?php if ($errors !== []): ?>
-        <ul class="error-list">
-          <?php foreach ($errors as $error): ?>
-            <li><?= h($error); ?></li>
+    <div class="detail-columns">
+      <section id="customer-info" class="panel content-panel detail-panel">
+        <h2>顧客情報</h2>
+        <div class="customer-grid">
+          <?php foreach ($customerFields as $field => $label): ?>
+            <article class="customer-item">
+              <span><?= h($label); ?></span>
+              <strong><?= h((string) ($record[$field] ?? '')); ?></strong>
+            </article>
           <?php endforeach; ?>
-        </ul>
-      <?php endif; ?>
+        </div>
+      </section>
 
-      <?php if ($writings === []): ?>
-        <p class="empty">writingデータがまだありません。</p>
-      <?php else: ?>
-        <table class="table">
-          <thead>
-          <tr>
-            <th>ID</th>
-            <th>updated_at</th>
-            <th>操作</th>
-          </tr>
-          </thead>
-          <tbody>
-          <?php foreach ($writings as $writing): ?>
+      <section id="writing-list" class="panel content-panel detail-panel">
+        <div class="section-head">
+          <h2>サポート面談記録</h2>
+          <button type="button" class="btn btn-primary" data-open-modal="create-writing-modal">追加</button>
+        </div>
+
+        <?php if (isset($_GET['saved'])): ?>
+          <p class="notice">保存しました。</p>
+        <?php endif; ?>
+
+        <?php if ($errors !== []): ?>
+          <ul class="error-list">
+            <?php foreach ($errors as $error): ?>
+              <li><?= h($error); ?></li>
+            <?php endforeach; ?>
+          </ul>
+        <?php endif; ?>
+
+        <?php if ($writings === []): ?>
+          <p class="empty">writingデータがまだありません。</p>
+        <?php else: ?>
+          <table class="table">
+            <thead>
             <tr>
-              <td><?= h((string) ($writing['id'] ?? '')); ?></td>
-              <td><?= h((string) ($writing['updated_at'] ?? '')); ?></td>
-              <td>
-                <button
-                  type="button"
-                  class="btn btn-ghost"
-                  data-open-modal="writing-modal"
-                  data-writing="<?= h((string) ($writing['writing'] ?? '')); ?>"
-                  data-writing-notes="<?= h((string) ($writing['writing_notes'] ?? '')); ?>"
-                  data-file-name="<?= h((string) ($writing['file_name'] ?? '')); ?>"
-                >
-                  詳細を見る
-                </button>
-              </td>
+              <th>ID</th>
+              <th>updated_at</th>
+              <th>操作</th>
             </tr>
-          <?php endforeach; ?>
-          </tbody>
-        </table>
-      <?php endif; ?>
-    </section>
+            </thead>
+            <tbody>
+            <?php foreach ($writings as $writing): ?>
+              <tr>
+                <td><?= h((string) ($writing['id'] ?? '')); ?></td>
+                <td><?= h((string) ($writing['updated_at'] ?? '')); ?></td>
+                <td>
+                  <button
+                    type="button"
+                    class="btn btn-ghost"
+                    data-open-modal="writing-modal"
+                    data-writing="<?= h((string) ($writing['writing'] ?? '')); ?>"
+                    data-writing-notes="<?= h((string) ($writing['writing_notes'] ?? '')); ?>"
+                    data-file-name="<?= h((string) ($writing['file_name'] ?? '')); ?>"
+                  >
+                    詳細を見る
+                  </button>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+            </tbody>
+          </table>
+        <?php endif; ?>
+      </section>
+    </div>
   </section>
 </div>
 
@@ -212,10 +252,14 @@ require 'header.php';
       <h3>Writing追加</h3>
       <button type="button" class="btn btn-ghost" data-close-modal>閉じる</button>
     </div>
-    <form method="post" class="writing-form">
+    <form method="post" class="writing-form" enctype="multipart/form-data">
       <div class="field">
-        <label for="file_name">file_name（音声URL）</label>
-        <input id="file_name" name="file_name" type="text" required>
+        <label for="audio_file">音声ファイル</label>
+        <div class="dropzone" data-dropzone>
+          <p>ここに音声ファイルをドロップ&ドラッグするか、下のボタンから選択してください。</p>
+          <input id="audio_file" name="audio_file" type="file" accept="audio/*" required data-audio-input>
+          <p class="file-meta" data-file-meta>未選択</p>
+        </div>
       </div>
       <div class="field">
         <label for="writing">writing</label>
