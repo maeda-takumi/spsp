@@ -418,6 +418,12 @@ try {
         $pdo->rollBack();
     }
 
-    fwrite(STDERR, '[ERROR] ' . $e->getMessage() . PHP_EOL);
+    $errorMessage = '[ERROR] ' . $e->getMessage() . PHP_EOL;
+
+    if (defined('STDERR')) {
+        fwrite(STDERR, $errorMessage);
+    } else {
+        error_log(trim($errorMessage));
+    }
     exit(1);
 }
