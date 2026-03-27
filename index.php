@@ -166,6 +166,7 @@ require 'header.php';
             <th>entry_point</th>
             <th>status</th>
             <th>line_name</th>
+            <th>操作</th>
           </tr>
           </thead>
           <tbody>
@@ -175,6 +176,7 @@ require 'header.php';
               <td><span class="badge"><?= h((string) ($row['entry_point'] ?? '')); ?></span></td>
               <td><?= h((string) ($row['status'] ?? '')); ?></td>
               <td><?= h((string) ($row['line_name'] ?? '')); ?></td>
+              <td><a class="btn btn-ghost" href="detail.php?sheet_id=<?= rawurlencode((string) ($row['sheet_id'] ?? '')); ?>">詳細</a></td>
             </tr>
           <?php endforeach; ?>
           </tbody>
