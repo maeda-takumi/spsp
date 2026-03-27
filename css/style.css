@@ -93,6 +93,7 @@ body {
   margin-bottom: 16px;
   object-fit: cover;
   background: linear-gradient(135deg, #e8f0ff, #bfd7ff);
+  padding: 7px;
 }
 
 .side-panel h1 {
