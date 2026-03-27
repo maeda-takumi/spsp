@@ -23,8 +23,9 @@ function db(): PDO
     ]);
 }
 
-const GOOGLE_OAUTH_TOKEN_FILE = __DIR__ . '/download/google_oauth_token.json';
-const FALLBACK_MAIL_TO = 'systemsoufu@gmail.com';
+const GOOGLE_OAUTH_TOKEN_FILE =  'download/google_oauth_token.json';
+const MAIL_SENDER = 'systemsoufu@gmail.com';
+const FALLBACK_MAIL_TO = MAIL_SENDER;
 const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 
 function requestJson(string $url, array $headers = [], ?string $body = null): array
@@ -120,6 +121,7 @@ function buildGmailRawMessage(string $to, string $subject, string $body, array $
 {
     $encodedSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
     $headers = [
+        'From: ' . MAIL_SENDER,
         'To: ' . $to,
         'Subject: ' . $encodedSubject,
         'MIME-Version: 1.0',
@@ -173,7 +175,7 @@ function sendWithGmailApi(string $to, string $subject, string $body, array $atta
     }
 
     $response = requestJson(
-        'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+        'https://gmail.googleapis.com/gmail/v1/users/' . rawurlencode(MAIL_SENDER) . '/messages/send',
         [
             'Authorization: Bearer ' . $accessToken,
             'Content-Type: application/json',
