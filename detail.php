@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($errors === []) {
         $insertStmt = $pdo->prepare('INSERT INTO customer_sales_record_writings (sheet_id, file_name, writing, writing_notes) VALUES (:sheet_id, :file_name, :writing, :writing_notes)');
-        $insertStmt->bindValue(':sheet_id', (string) ($record['sheet_id'] ?? ''));
+        $insertStmt->bindValue(':sheet_id', (int) ($record['id'] ?? 0), PDO::PARAM_INT);
         $insertStmt->bindValue(':file_name', $fileName);
         $insertStmt->bindValue(':writing', $writing === '' ? null : $writing);
         $insertStmt->bindValue(':writing_notes', $writingNotes === '' ? null : $writingNotes);
@@ -101,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $writingsStmt = $pdo->prepare('SELECT id, file_name, writing, writing_notes, updated_at FROM customer_sales_record_writings WHERE sheet_id = :sheet_id ORDER BY updated_at DESC');
-$writingsStmt->bindValue(':sheet_id', (string) ($record['sheet_id'] ?? ''));
+$writingsStmt->bindValue(':sheet_id', (int) ($record['id'] ?? 0), PDO::PARAM_INT);
 $writingsStmt->execute();
 $writings = $writingsStmt->fetchAll();
 

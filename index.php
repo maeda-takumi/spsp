@@ -107,7 +107,7 @@ require 'header.php';
 <div class="dashboard-shell panel">
   <aside class="side-panel">
     <!-- <img class="avatar" src="img/neo.png" alt="担当者アイコン" loading="lazy"> -->
-    <h1>Sales Console</h1>
+    <h1>SUP-SUP NEO</h1>
     <p>LINKS</p>
 
     <nav class="side-nav" aria-label="メニュー">
