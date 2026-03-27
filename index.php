@@ -30,32 +30,28 @@ function getQuery(string $key): ?string
     return $value === '' ? null : $value;
 }
 
-$fullName = getQuery('full_name');
-$status = getQuery('status');
-$dateFrom = getQuery('date_from');
-$dateTo = getQuery('date_to');
+$name = getQuery('name');
+$videoStaff = getQuery('video_staff');
+$salesStaff = getQuery('sales_staff');
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 20;
 $offset = ($page - 1) * $perPage;
 
+
 $where = [];
 $params = [];
 
-if ($fullName !== null) {
-    $where[] = 'full_name LIKE :full_name';
-    $params[':full_name'] = '%' . $fullName . '%';
+if ($name !== null) {
+    $where[] = '(line_name LIKE :name OR full_name LIKE :name)';
+    $params[':name'] = '%' . $name . '%';
 }
-if ($status !== null) {
-    $where[] = 'status = :status';
-    $params[':status'] = $status;
+if ($videoStaff !== null) {
+    $where[] = 'video_staff = :video_staff';
+    $params[':video_staff'] = $videoStaff;
 }
-if ($dateFrom !== null) {
-    $where[] = 'sales_date >= :date_from';
-    $params[':date_from'] = $dateFrom;
-}
-if ($dateTo !== null) {
-    $where[] = 'sales_date <= :date_to';
-    $params[':date_to'] = $dateTo;
+if ($salesStaff !== null) {
+    $where[] = 'sales_staff = :sales_staff';
+    $params[':sales_staff'] = $salesStaff;
 }
 
 $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
@@ -89,8 +85,11 @@ $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $stmt->execute();
 $rows = $stmt->fetchAll();
 
-$statusStmt = $pdo->query("SELECT DISTINCT status FROM customer_sales_records WHERE status IS NOT NULL AND status <> '' ORDER BY status ASC");
-$statusOptions = $statusStmt->fetchAll(PDO::FETCH_COLUMN);
+$videoStaffStmt = $pdo->query("SELECT DISTINCT video_staff FROM customer_sales_records WHERE video_staff IS NOT NULL AND video_staff <> '' ORDER BY video_staff ASC");
+$videoStaffOptions = $videoStaffStmt->fetchAll(PDO::FETCH_COLUMN);
+
+$salesStaffStmt = $pdo->query("SELECT DISTINCT sales_staff FROM customer_sales_records WHERE sales_staff IS NOT NULL AND sales_staff <> '' ORDER BY sales_staff ASC");
+$salesStaffOptions = $salesStaffStmt->fetchAll(PDO::FETCH_COLUMN);
 
 $entryPointSummary = [];
 foreach ($rows as $row) {
@@ -107,66 +106,46 @@ require 'header.php';
 <div class="glass-board" aria-hidden="true" style="display:none;"></div>
 <div class="dashboard-shell panel">
   <aside class="side-panel">
-    <img class="avatar" src="img/dummy.png" alt="担当者アイコン" loading="lazy">
+    <!-- <img class="avatar" src="img/neo.png" alt="担当者アイコン" loading="lazy"> -->
     <h1>Sales Console</h1>
-    <p>顧客セールスレコード一覧</p>
+    <p>LINKS</p>
 
     <nav class="side-nav" aria-label="メニュー">
-      <a href="#summary">Summary</a>
-      <a href="#filters">Filter</a>
-      <a href="#records">Records</a>
+      <a href="">DUMMY-LINK</a>
+      <a href="">DUMMY-LINK</a>
+      <a href="">DUMMY-LINK</a>
     </nav>
   </aside>
 
   <section class="main-panel">
-    <!-- <section id="summary" class="summary-grid" aria-label="概要">
-      <article class="mini-card">
-        <span>総件数</span>
-        <strong><?= number_format($total); ?></strong>
-        <small>records</small>
-      </article>
-      <article class="mini-card">
-        <span>現在ページ</span>
-        <strong><?= $page; ?> / <?= $totalPages; ?></strong>
-        <small>pages</small>
-      </article>
-      <article class="mini-card">
-        <span>主要流入</span>
-        <strong><?= h($topEntryPoint); ?></strong>
-        <small><?= number_format($topEntryPointCount); ?>件</small>
-      </article>
-      <article class="mini-card">
-        <span>ステータス数</span>
-        <strong><?= count($statusOptions); ?></strong>
-        <small>types</small>
-      </article>
-    </section> -->
-
     <section id="filters" class="panel content-panel filters">
       <form method="get" data-filter-form>
         <div class="filter-grid">
           <div class="field">
-            <label for="full_name">名前（部分一致）</label>
-            <input id="full_name" type="text" name="full_name" value="<?= h($fullName); ?>" placeholder="例: 山田">
+            <label for="name">名前検索（line_name / full_name）</label>
+            <input id="name" type="text" name="name" value="<?= h($name); ?>" placeholder="例: 山田">
           </div>
           <div class="field">
-            <label for="status">ステータス</label>
-            <select id="status" name="status">
+            <label for="video_staff">演者検索（video_staff）</label>
+            <select id="video_staff" name="video_staff">
               <option value="">すべて</option>
-              <?php foreach ($statusOptions as $option): ?>
-                <option value="<?= h((string) $option); ?>" <?= $status === $option ? 'selected' : ''; ?>>
+              <?php foreach ($videoStaffOptions as $option): ?>
+                <option value="<?= h((string) $option); ?>" <?= $videoStaff === $option ? 'selected' : ''; ?>>
                   <?= h((string) $option); ?>
                 </option>
               <?php endforeach; ?>
             </select>
           </div>
           <div class="field">
-            <label for="date_from">売上日（開始）</label>
-            <input id="date_from" type="date" name="date_from" value="<?= h($dateFrom); ?>">
-          </div>
-          <div class="field">
-            <label for="date_to">売上日（終了）</label>
-            <input id="date_to" type="date" name="date_to" value="<?= h($dateTo); ?>">
+            <label for="sales_staff">セールス検索（sales_staff）</label>
+            <select id="sales_staff" name="sales_staff">
+              <option value="">すべて</option>
+              <?php foreach ($salesStaffOptions as $option): ?>
+                <option value="<?= h((string) $option); ?>" <?= $salesStaff === $option ? 'selected' : ''; ?>>
+                  <?= h((string) $option); ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
           </div>
         </div>
         <div class="actions">
