@@ -404,16 +404,18 @@ body {
 
 .writing-detail {
   margin: 0;
+  display: grid;
+  gap: 16px;
 }
 
 .writing-detail dt {
-  margin-top: 12px;
   color: var(--muted);
   font-size: 0.85rem;
+  margin: 0 0 6px;
 }
 
 .writing-detail dd {
-  margin: 4px 0 0;
+  margin: 0;
   /* white-space: pre-wrap; */
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -421,7 +423,7 @@ body {
 
 .writing-detail textarea {
   width: 100%;
-  min-height: 180px;
+  min-height: 360px;
   resize: vertical;
 }
 
@@ -430,6 +432,30 @@ body {
   color: var(--muted);
 }
 
+.writing-detail-audio audio {
+  margin-bottom: 10px;
+}
+
+.writing-detail-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.writing-detail-block {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .writing-detail-body {
+    grid-template-columns: 1fr;
+  }
+
+  .writing-detail textarea {
+    min-height: 240px;
+  }
+}
 audio {
   width: 100%;
 }

@@ -250,13 +250,13 @@ require 'header.php';
         <?php endif; ?>
 
         <?php if ($writings === []): ?>
-          <p class="empty">writingデータがまだありません。</p>
+          <p class="empty">サポート面談記録が登録されていません。</p>
         <?php else: ?>
           <table class="table">
             <thead>
             <tr>
               <th>ID</th>
-              <th>updated_at</th>
+              <th>登録日</th>
               <th>操作</th>
             </tr>
             </thead>
@@ -272,7 +272,7 @@ require 'header.php';
                     data-open-modal="writing-modal"
                     data-writing="<?= h((string) ($writing['writing'] ?? '')); ?>"
                     data-writing-notes="<?= h((string) ($writing['writing_notes'] ?? '')); ?>"
-                    data-writing-id="<?= h((string) ($writing['id'] ?? '')); ?>"
+                    data-file-name="<?= h((string) ($writing['file_name'] ?? '')); ?>"
                   >
                     詳細を見る
                   </button>
@@ -290,27 +290,35 @@ require 'header.php';
 <div class="modal" id="writing-modal" hidden>
   <div class="modal-dialog panel content-panel">
     <div class="section-head">
-      <h3>Writing詳細</h3>
+      <h3>サポート面談記録</h3>
       <button type="button" class="btn btn-ghost" data-close-modal>閉じる</button>
     </div>
     <form method="post" class="writing-form" enctype="multipart/form-data">
       <input type="hidden" name="action" value="update" data-modal-action>
       <input type="hidden" name="writing_id" value="" data-modal-writing-id>
       <dl class="writing-detail">
-        <dt>writing</dt>
-        <dd>
-          <textarea name="writing" rows="10" data-modal-writing-input></textarea>
-        </dd>
-        <dt>writing_notes</dt>
-        <dd>
-          <textarea name="writing_notes" rows="14" data-modal-writing-notes-input></textarea>
-        </dd>
-        <dt>音声ファイル（差し替え任意）</dt>
-        <dd>
-          <p class="audio-file" data-modal-file-name></p>
-          <audio controls data-modal-audio></audio>
-          <input name="audio_file" type="file" accept="audio/*">
-        </dd>
+        <div class="writing-detail-audio">
+          <dt>音声ファイル（差し替え任意）</dt>
+          <dd>
+            <p class="audio-file" data-modal-file-name>未登録</p>
+            <audio controls data-modal-audio preload="metadata"></audio>
+            <input name="audio_file" type="file" accept="audio/*">
+          </dd>
+        </div>
+        <div class="writing-detail-body">
+          <div class="writing-detail-block">
+            <dt>文字起こし</dt>
+            <dd>
+              <textarea name="writing" rows="14" data-modal-writing-input></textarea>
+            </dd>
+          </div>
+          <div class="writing-detail-block">
+            <dt>要約</dt>
+            <dd>
+              <textarea name="writing_notes" rows="14" data-modal-writing-notes-input></textarea>
+            </dd>
+          </div>
+        </div>
       </dl>
       <div class="actions">
         <button class="btn btn-primary" type="submit">更新する</button>

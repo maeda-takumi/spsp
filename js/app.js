@@ -56,8 +56,7 @@
           notesNode.value = writingNotes;
         }
         if (fileNameNode) {
-          fileNameNode.textContent = fileName;
-          audioNode.load();
+          fileNameNode.textContent = fileName || '未登録';
         }
         if (writingIdNode) {
           writingIdNode.value = writingId;
@@ -78,7 +77,8 @@
           }, { once: true });
         }
         if (audioNode) {
-          audioNode.src = fileName;
+          audioNode.src = fileName || '';
+          audioNode.load();
         }
       }
 
