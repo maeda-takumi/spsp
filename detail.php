@@ -369,6 +369,17 @@ $draftStmt = $pdo->prepare('SELECT email_template_id, mail_to, mail_subject, mai
 
 $mentionMasterStmt = $pdo->query('SELECT id, name, chatwork_id FROM chatwork_mention_masters ORDER BY id ASC');
 $mentionMasters = $mentionMasterStmt->fetchAll();
+$mentionMastersByName = [];
+foreach ($mentionMasters as $mentionMaster) {
+    $mentionName = trim((string) ($mentionMaster['name'] ?? ''));
+    if ($mentionName === '') {
+        continue;
+    }
+    if (!isset($mentionMastersByName[$mentionName])) {
+        $mentionMastersByName[$mentionName] = [];
+    }
+    $mentionMastersByName[$mentionName][] = $mentionMaster;
+}
 $draftStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
 $draftStmt->execute();
 $existingDraft = $draftStmt->fetch() ?: [];
@@ -617,6 +628,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($errors === [] && $action === 'send_email') {
+                $selectedTemplate = null;
+                if ($templateId > 0) {
+                    $templateForNotificationStmt = $pdo->prepare('SELECT template_name, chatwork_message_template, chatwork_mention_ids FROM email_templates WHERE id = :id LIMIT 1');
+                    $templateForNotificationStmt->bindValue(':id', $templateId, PDO::PARAM_INT);
+                    $templateForNotificationStmt->execute();
+                    $selectedTemplate = $templateForNotificationStmt->fetch() ?: null;
+                }
+                $notificationTemplate = trim((string) ($selectedTemplate['chatwork_message_template'] ?? ''));
+                if ($notificationTemplate === '') {
+                    $notificationTemplate = DEFAULT_CHATWORK_MESSAGE_TEMPLATE;
+                }
+
+                $notificationMessage = '';
+                try {
+                    $notificationMessage = renderChatworkMessageTemplate($notificationTemplate, [
+                        'template_name' => (string) ($selectedTemplate['template_name'] ?? ''),
+                        'sales_staff' => (string) ($record['sales_staff'] ?? ''),
+                        'full_name' => (string) ($record['full_name'] ?? ''),
+                        'line_name' => (string) ($record['line_name'] ?? ''),
+                        'video_staff' => (string) ($record['video_staff'] ?? ''),
+                    ], $mentionMastersByName);
+                } catch (Throwable $chatworkTemplateError) {
+                    $errors[] = 'Chatwork通知テンプレートに不備があります。' . $chatworkTemplateError->getMessage();
+                }
+
+                if ($errors !== []) {
+                    $attachmentStmt->execute();
+                    $existingAttachments = $attachmentStmt->fetchAll();
+                }
+            }
+            if ($errors === [] && $action === 'send_email') {
                 $attachmentsForSendStmt = $pdo->prepare(
                     'SELECT file_name, file_path FROM customer_sales_record_email_attachments WHERE customer_sales_record_id = :record_id ORDER BY created_at ASC, id ASC'
                 );
@@ -668,40 +710,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sendLogStmt->bindValue(':mail_subject', $mailSubject);
                 $sendLogStmt->bindValue(':mail_body', $mailBody);
                 $sendLogStmt->execute();
-                $selectedTemplate = null;
-                if ($templateId > 0) {
-                    $templateForNotificationStmt = $pdo->prepare('SELECT template_name, chatwork_message_template, chatwork_mention_ids FROM email_templates WHERE id = :id LIMIT 1');
-                    $templateForNotificationStmt->bindValue(':id', $templateId, PDO::PARAM_INT);
-                    $templateForNotificationStmt->execute();
-                    $selectedTemplate = $templateForNotificationStmt->fetch() ?: null;
-                }
-                $notificationTemplate = trim((string) ($selectedTemplate['chatwork_message_template'] ?? ''));
-                if ($notificationTemplate === '') {
-                    $notificationTemplate = DEFAULT_CHATWORK_MESSAGE_TEMPLATE;
-                }
-
-                $mentionMap = [];
-                foreach ($mentionMasters as $mentionMaster) {
-                    $mentionMap[(int) ($mentionMaster['id'] ?? 0)] = (string) ($mentionMaster['chatwork_id'] ?? '');
-                }
-                $templateMentionIdsCsv = (string) ($selectedTemplate['chatwork_mention_ids'] ?? '');
-                $templateMentionIds = array_values(array_filter(array_map('intval', explode(',', $templateMentionIdsCsv)), static fn ($value) => $value > 0));
-                $mentionChatworkIds = [];
-                foreach ($templateMentionIds as $mentionId) {
-                    if (isset($mentionMap[$mentionId])) {
-                        $mentionChatworkIds[] = $mentionMap[$mentionId];
-                    }
-                }
-
-                $notificationMessage = renderChatworkMessageTemplate($notificationTemplate, [
-                    'template_name' => (string) ($selectedTemplate['template_name'] ?? ''),
-                    'sales_staff' => (string) ($record['sales_staff'] ?? ''),
-                    'full_name' => (string) ($record['full_name'] ?? ''),
-                    'line_name' => (string) ($record['line_name'] ?? ''),
-                ]);
 
                 try {
-                    sendChatworkNotification($notificationMessage, $mentionChatworkIds);
+                    sendChatworkNotification($notificationMessage);
                 } catch (Throwable $chatworkError) {
                     error_log('Chatwork通知エラー: ' . $chatworkError->getMessage());
                 }
@@ -1161,7 +1172,6 @@ require 'header.php';
         <?php foreach ($emailTemplates as $template): ?>
           <form method="post" class="template-item">
             <input type="hidden" name="template_id" value="<?= h((string) $template['id']); ?>">
-            <?php $selectedMentionIds = array_filter(array_map('trim', explode(',', (string) ($template['chatwork_mention_ids'] ?? '')))); ?>
             <div class="field">
               <label>テンプレート名</label>
               <input type="text" name="template_name" value="<?= h((string) ($template['template_name'] ?? '')); ?>" required>
@@ -1179,20 +1189,8 @@ require 'header.php';
               <textarea name="template_notification_body" rows="6" required><?= h((string) (($template['chatwork_message_template'] ?? '') !== '' ? $template['chatwork_message_template'] : DEFAULT_CHATWORK_MESSAGE_TEMPLATE)); ?></textarea>
             </div>
             <div class="field">
-              <label>メンションID設定</label>
-              <?php if ($mentionMasters === []): ?>
-                <p class="empty">メンション先が未登録です。chatwork_mention_masters テーブルに登録してください。</p>
-              <?php else: ?>
-                <div>
-                  <?php foreach ($mentionMasters as $mentionMaster): ?>
-                    <?php $mentionId = (string) ($mentionMaster['id'] ?? ''); ?>
-                    <label style="display:block;margin-bottom:6px;">
-                      <input type="checkbox" name="template_mention_ids[]" value="<?= h($mentionId); ?>" <?= in_array($mentionId, $selectedMentionIds, true) ? 'checked' : ''; ?>>
-                      <?= h((string) ($mentionMaster['name'] ?? '')); ?> (<?= h((string) ($mentionMaster['chatwork_id'] ?? '')); ?>)
-                    </label>
-                  <?php endforeach; ?>
-                </div>
-              <?php endif; ?>
+              <label>差し込みルール</label>
+              <p class="muted">文字列差し込みは <code>db[キー名]</code>、メンションは <code>mention[キー名]</code> を使用します。例: <code>mention[sales_staff]</code>。</p>
             </div>
             <div class="actions">
               <button class="btn btn-primary" type="submit" name="action" value="template_update">更新</button>
@@ -1223,20 +1221,8 @@ require 'header.php';
         <textarea name="template_notification_body" rows="6" required><?= h($formValues['template_notification_body']); ?></textarea>
       </div>
       <div class="field">
-        <label>メンションID設定</label>
-        <?php if ($mentionMasters === []): ?>
-          <p class="empty">メンション先が未登録です。chatwork_mention_masters テーブルに登録してください。</p>
-        <?php else: ?>
-          <div>
-            <?php foreach ($mentionMasters as $mentionMaster): ?>
-              <?php $mentionId = (string) ($mentionMaster['id'] ?? ''); ?>
-              <label style="display:block;margin-bottom:6px;">
-                <input type="checkbox" name="template_mention_ids[]" value="<?= h($mentionId); ?>" <?= in_array($mentionId, (array) ($formValues['template_mention_ids'] ?? []), true) ? 'checked' : ''; ?>>
-                <?= h((string) ($mentionMaster['name'] ?? '')); ?> (<?= h((string) ($mentionMaster['chatwork_id'] ?? '')); ?>)
-              </label>
-            <?php endforeach; ?>
-          </div>
-        <?php endif; ?>
+        <label>差し込みルール</label>
+        <p class="muted">文字列差し込みは <code>db[キー名]</code>、メンションは <code>mention[キー名]</code> を使用します。例: <code>mention[sales_staff]</code>。</p>
       </div>
       <div class="actions">
         <button class="btn btn-primary" type="submit" name="action" value="template_create">追加</button>
