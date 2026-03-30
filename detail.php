@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once 'config.php';
 require_once 'chatwork_notifier.php';
+require_once 'support_interview_sheet_appender.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
@@ -833,6 +834,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $updateStmt->bindValue(':id', $writingId, PDO::PARAM_INT);
             $updateStmt->bindValue(':sheet_id', $recordSheetId);
             $updateStmt->execute();
+            try {
+                appendSupportInterviewRecordToSheet($record, [
+                    'id' => $writingId,
+                    'file_name' => $fileName,
+                    'writing' => $writing,
+                    'writing_notes' => $writingNotes,
+                ], 'update');
+            } catch (Throwable $e) {
+                $errors[] = 'サポート面談記録のスプレッドシート連携に失敗しました。' . $e->getMessage();
+            }
             $noticeParam = 'updated=1';
         } else {
             $insertStmt = $pdo->prepare('INSERT INTO customer_sales_record_writings (sheet_id, file_name, writing, writing_notes) VALUES (:sheet_id, :file_name, :writing, :writing_notes)');
@@ -841,11 +852,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $insertStmt->bindValue(':writing', $writing === '' ? null : $writing);
             $insertStmt->bindValue(':writing_notes', $writingNotes === '' ? null : $writingNotes);
             $insertStmt->execute();
+            $createdWritingId = (int) $pdo->lastInsertId();
+            try {
+                appendSupportInterviewRecordToSheet($record, [
+                    'id' => $createdWritingId,
+                    'file_name' => $fileName,
+                    'writing' => $writing,
+                    'writing_notes' => $writingNotes,
+                ], 'create');
+            } catch (Throwable $e) {
+                $errors[] = 'サポート面談記録のスプレッドシート連携に失敗しました。' . $e->getMessage();
+            }
             $noticeParam = 'saved=1';
         }
 
-        header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&' . $noticeParam . '&refresh=' . time() . '#writing-list');
-        exit;
+        if ($errors === []) {
+            header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&' . $noticeParam . '&refresh=' . time() . '#writing-list');
+            exit;
+        }
     }
 }
 
