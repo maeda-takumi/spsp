@@ -299,15 +299,38 @@ function valueAt(array $row, int $index): ?string
 
 function logMessage(string $message, bool $isError = false): void
 {
-    $line = '[' . date('Y-m-d H:i:s') . '] ' . $message . PHP_EOL;
-    $stream = $isError ? 'php://stderr' : 'php://stdout';
-    file_put_contents($stream, $line, FILE_APPEND);
+    $line = '[' . date('Y-m-d H:i:s') . '] ' . $message;
 
-    if ($isError) {
-        error_log(trim($line));
+
+    error_log($line);
+
+    if (PHP_SAPI === 'cli') {
+        $stream = $isError ? 'php://stderr' : 'php://stdout';
+        file_put_contents($stream, $line . PHP_EOL, FILE_APPEND);
+        return;
+    }
+
+    static $headersSent = false;
+    if ($headersSent === false) {
+        header('Content-Type: text/plain; charset=UTF-8');
+        $headersSent = true;
+    }
+
+    echo $line . "\n";
+    if (function_exists('flush')) {
+        flush();
     }
 }
 
+function respondAndExit(string $message, int $statusCode = 200): void
+{
+    if (PHP_SAPI !== 'cli') {
+        http_response_code($statusCode);
+    }
+
+    logMessage($message, $statusCode >= 400);
+    exit($statusCode >= 400 ? 1 : 0);
+}
 $columnMap = [
     'sheet_id' => 0,
     'serial_no' => 1,
@@ -475,12 +498,14 @@ try {
 
     $pdo->commit();
 
-    logMessage('Import completed. inserted_rows=' . $inserted);
+    $importedCount = (int) $pdo->query('SELECT COUNT(*) FROM ' . TARGET_TABLE)->fetchColumn();
+    $completedMessage = 'Import completed. inserted_rows=' . $inserted . ' db_rows=' . $importedCount;
+    respondAndExit($completedMessage, 200);
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
 
-    logMessage('[ERROR] ' . $e->getMessage(), true);
-    exit(1);
+    $errorMessage = '[ERROR] Import failed. ' . $e->getMessage();
+    respondAndExit($errorMessage, 500);
 }
