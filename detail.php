@@ -108,8 +108,26 @@ function getGmailAccessToken(): string
         }
     }
 
-    $clientId = (string) ($tokenData['client_id'] ?? $tokenAppData['client_id'] ?? $clientData['client_id'] ?? '');
-    $clientSecret = (string) ($tokenData['client_secret'] ?? $tokenAppData['client_secret'] ?? $clientData['client_secret'] ?? '');
+    $clientId = (string) (
+        $tokenData['client_id']
+        ?? $tokenData['clientId']
+        ?? $tokenAppData['client_id']
+        ?? $tokenAppData['clientId']
+        ?? $clientData['client_id']
+        ?? $clientData['clientId']
+        ?? getenv('GOOGLE_OAUTH_CLIENT_ID')
+        ?? ''
+    );
+    $clientSecret = (string) (
+        $tokenData['client_secret']
+        ?? $tokenData['clientSecret']
+        ?? $tokenAppData['client_secret']
+        ?? $tokenAppData['clientSecret']
+        ?? $clientData['client_secret']
+        ?? $clientData['clientSecret']
+        ?? getenv('GOOGLE_OAUTH_CLIENT_SECRET')
+        ?? ''
+    );
     $refreshToken = (string) ($tokenData['refresh_token'] ?? '');
     $tokenUri = (string) ($tokenData['token_uri'] ?? $tokenAppData['token_uri'] ?? $clientData['token_uri'] ?? 'https://oauth2.googleapis.com/token');
 
