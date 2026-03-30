@@ -284,6 +284,7 @@ body {
   margin-top: 14px;
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .btn {
@@ -397,6 +398,88 @@ body {
   .table th,
   .table td {
     padding: 12px;
+  }
+  .filters {
+    padding: 14px;
+  }
+
+  .filter-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .actions .btn {
+    width: 100%;
+  }
+
+  .table-wrap {
+    overflow-x: visible;
+    padding: 14px;
+  }
+
+  .table {
+    min-width: 0;
+  }
+
+  .table thead {
+    display: none;
+  }
+
+  .table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .table tr {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid #dce7ff;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .table td {
+    display: grid;
+    grid-template-columns: minmax(92px, 110px) 1fr;
+    gap: 8px;
+    align-items: center;
+    white-space: normal;
+    border-bottom: 0;
+    padding: 0;
+    font-size: 0.88rem;
+    overflow-wrap: anywhere;
+  }
+
+  .table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 0.74rem;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+
+  .table td:last-child {
+    padding-top: 4px;
+  }
+
+  .table td:last-child .btn {
+    width: 100%;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+    padding: 12px 0 0;
+  }
+
+  .meta {
+    width: 100%;
+    margin-left: 0;
   }
 }
 
@@ -809,5 +892,16 @@ audio {
 @media (max-width: 1100px) {
   .detail-columns {
     grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 780px) {
+  .app-header-tools {
+    margin: auto
+  }
+  .side-panel{
+    display: flex;
+  }
+  .side-panel h1{
+    margin:auto;
   }
 }

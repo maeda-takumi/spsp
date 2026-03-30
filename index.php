@@ -198,14 +198,14 @@ require 'header.php';
           <tbody>
           <?php foreach ($rows as $row): ?>
             <tr>
-              <td><?= h((string) ($row['sheet_id'] ?? '')); ?></td>
-              <td><span class="badge"><?= h((string) ($row['entry_point'] ?? '')); ?></span></td>
-              <td><?= h((string) ($row['status'] ?? '')); ?></td>
-              <td><?= h((string) ($row['line_name'] ?? '')); ?></td>
-              <td><?= h((string) ($row['full_name'] ?? '')); ?></td>
-              <td><?= h((string) ($row['video_staff_display'] ?? '')); ?></td>
-              <td><?= h((string) ($row['sales_staff'] ?? '')); ?></td>
-              <td><a class="btn btn-ghost" href="detail.php?sheet_id=<?= rawurlencode((string) ($row['sheet_id'] ?? '')); ?>">詳細</a></td>
+              <td data-label="シートID"><?= h((string) ($row['sheet_id'] ?? '')); ?></td>
+              <td data-label="入口"><span class="badge"><?= h((string) ($row['entry_point'] ?? '')); ?></span></td>
+              <td data-label="状態"><?= h((string) ($row['status'] ?? '')); ?></td>
+              <td data-label="LINE名"><?= h((string) ($row['line_name'] ?? '')); ?></td>
+              <td data-label="本名"><?= h((string) ($row['full_name'] ?? '')); ?></td>
+              <td data-label="演者名"><?= h((string) ($row['video_staff_display'] ?? '')); ?></td>
+              <td data-label="セールス名"><?= h((string) ($row['sales_staff'] ?? '')); ?></td>
+              <td data-label="操作"><a class="btn btn-ghost" href="detail.php?sheet_id=<?= rawurlencode((string) ($row['sheet_id'] ?? '')); ?>">詳細</a></td>
             </tr>
           <?php endforeach; ?>
           </tbody>
