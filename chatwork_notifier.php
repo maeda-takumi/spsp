@@ -6,7 +6,7 @@ const CHATWORK_API_KEY = 'fee574510c5ce22d78b85282a0a8acaa';
 const CHATWORK_ROOM_ID = '404615917';
 const DEFAULT_CHATWORK_MESSAGE_TEMPLATE = "■新規 送付メール送信完了■※カリキュラム表、個別活動表送付OK\n【db[template_name]】 mention[sales_staff]\ndb[full_name]（db[line_name]）";
 
-function renderChatworkMessageTemplate(string $template, array $context, array $mentionMastersByName): string
+function renderChatworkMessageTemplate(string $template, array $context, array $mentionMastersByName, array $actorMastersByName = []): string
 {
     $legacyPlaceholders = [
         'メールテンプレート名' => 'db[template_name]',
@@ -28,11 +28,12 @@ function renderChatworkMessageTemplate(string $template, array $context, array $
     if (!is_string($normalizedTemplate)) {
         throw new RuntimeException('Chatwork通知テンプレートの正規化に失敗しました。');
     }
-    $rendered = preg_replace_callback('/(db|mention)\[([a-zA-Z0-9_]+)\]/', static function (array $matches) use ($context, $mentionMastersByName): string {
+    $usedMentionChatworkIds = [];
+    $rendered = preg_replace_callback('/(db|mention|actor)\[([a-zA-Z0-9_]+)\]/', static function (array $matches) use ($context, $mentionMastersByName, $actorMastersByName, &$usedMentionChatworkIds): string {
         $type = $matches[1];
         $key = $matches[2];
         if (!array_key_exists($key, $context)) {
-            throw new RuntimeException(sprintf('Chatwork通知テンプレートのキー「%s」が存在しません。', $key));
+            throw new RuntimeException(sprintf('%s[%s] の参照キーが存在しません。', $type, $key));
         }
 
         if ($type === 'db') {
@@ -41,7 +42,21 @@ function renderChatworkMessageTemplate(string $template, array $context, array $
 
         $lookupName = trim((string) $context[$key]);
         if ($lookupName === '') {
-            throw new RuntimeException(sprintf('mention[%s] の参照値が空です。', $key));
+            throw new RuntimeException(sprintf('%s[%s] の参照値が空です。', $type, $key));
+        }
+
+        if ($type === 'actor') {
+            $actorCandidates = $actorMastersByName[$lookupName] ?? [];
+            if (count($actorCandidates) !== 1) {
+                throw new RuntimeException(sprintf('actor[%s] の参照値「%s」に一致する担当者が%s件です。', $key, $lookupName, count($actorCandidates)));
+            }
+
+            $actorDisplayName = trim((string) ($actorCandidates[0]['actor_name'] ?? ''));
+            if ($actorDisplayName === '') {
+                throw new RuntimeException(sprintf('actor[%s] のactor_nameが不正です。', $key));
+            }
+
+            return $actorDisplayName;
         }
 
         $mentionCandidates = $mentionMastersByName[$lookupName] ?? [];
@@ -58,6 +73,11 @@ function renderChatworkMessageTemplate(string $template, array $context, array $
         if ($mentionName === '') {
             $mentionName = $lookupName;
         }
+        if (isset($usedMentionChatworkIds[$chatworkId])) {
+            return '';
+        }
+        $usedMentionChatworkIds[$chatworkId] = true;
+
 
         return '[To:' . $chatworkId . ']' . $mentionName . 'さん';
     }, $normalizedTemplate);
@@ -66,6 +86,10 @@ function renderChatworkMessageTemplate(string $template, array $context, array $
         throw new RuntimeException('Chatwork通知テンプレートの展開に失敗しました。');
     }
 
+    $rendered = preg_replace('/[ \t]+(\r?\n)/', '$1', $rendered);
+    if (!is_string($rendered)) {
+        throw new RuntimeException('Chatwork通知テンプレートの整形に失敗しました。');
+    }
     return trim($rendered);
 }
 

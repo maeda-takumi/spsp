@@ -254,6 +254,22 @@ function tableHasColumn(PDO $pdo, string $tableName, string $columnName): bool
     return (bool) $stmt->fetchColumn();
 }
 
+function tableExists(PDO $pdo, string $tableName): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT 1
+         FROM information_schema.TABLES
+         WHERE TABLE_SCHEMA = :schema
+           AND TABLE_NAME = :table_name
+         LIMIT 1'
+    );
+    $stmt->bindValue(':schema', DB_NAME);
+    $stmt->bindValue(':table_name', $tableName);
+    $stmt->execute();
+
+    return (bool) $stmt->fetchColumn();
+}
+
 $pdo = db();
 
 $recordStmt = $pdo->prepare('SELECT * FROM customer_sales_records WHERE sheet_id = :sheet_id LIMIT 1');
@@ -379,6 +395,21 @@ foreach ($mentionMasters as $mentionMaster) {
         $mentionMastersByName[$mentionName] = [];
     }
     $mentionMastersByName[$mentionName][] = $mentionMaster;
+}
+$actorMastersByName = [];
+if (tableExists($pdo, 'actor_table') && tableHasColumn($pdo, 'actor_table', 'name') && tableHasColumn($pdo, 'actor_table', 'actor_name')) {
+    $actorMasterStmt = $pdo->query('SELECT name, actor_name FROM actor_table');
+    $actorMasters = $actorMasterStmt->fetchAll();
+    foreach ($actorMasters as $actorMaster) {
+        $actorNameKey = trim((string) ($actorMaster['name'] ?? ''));
+        if ($actorNameKey === '') {
+            continue;
+        }
+        if (!isset($actorMastersByName[$actorNameKey])) {
+            $actorMastersByName[$actorNameKey] = [];
+        }
+        $actorMastersByName[$actorNameKey][] = $actorMaster;
+    }
 }
 $draftStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
 $draftStmt->execute();
@@ -648,7 +679,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'full_name' => (string) ($record['full_name'] ?? ''),
                         'line_name' => (string) ($record['line_name'] ?? ''),
                         'video_staff' => (string) ($record['video_staff'] ?? ''),
-                    ], $mentionMastersByName);
+                    ], $mentionMastersByName, $actorMastersByName);
                 } catch (Throwable $chatworkTemplateError) {
                     $errors[] = 'Chatwork通知テンプレートに不備があります。' . $chatworkTemplateError->getMessage();
                 }
@@ -1190,7 +1221,7 @@ require 'header.php';
             </div>
             <div class="field">
               <label>差し込みルール</label>
-              <p class="muted">文字列差し込みは <code>db[キー名]</code>、メンションは <code>mention[キー名]</code> を使用します。例: <code>mention[sales_staff]</code>。</p>
+              <p class="muted">文字列差し込みは <code>db[キー名]</code>、メンションは <code>mention[キー名]</code>、担当者表示は <code>actor[キー名]</code> を使用します。例: <code>mention[sales_staff]</code> / <code>actor[video_staff]</code>。</p>
             </div>
             <div class="actions">
               <button class="btn btn-primary" type="submit" name="action" value="template_update">更新</button>
@@ -1222,7 +1253,7 @@ require 'header.php';
       </div>
       <div class="field">
         <label>差し込みルール</label>
-        <p class="muted">文字列差し込みは <code>db[キー名]</code>、メンションは <code>mention[キー名]</code> を使用します。例: <code>mention[sales_staff]</code>。</p>
+        <p class="muted">文字列差し込みは <code>db[キー名]</code>、メンションは <code>mention[キー名]</code>、担当者表示は <code>actor[キー名]</code> を使用します。例: <code>mention[sales_staff]</code> / <code>actor[video_staff]</code>。</p>
       </div>
       <div class="actions">
         <button class="btn btn-primary" type="submit" name="action" value="template_create">追加</button>
