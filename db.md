@@ -118,3 +118,20 @@ CREATE TABLE customer_sales_record_email_send_logs (
         ON UPDATE CASCADE
         ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS chatwork_mention_masters (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    chatwork_id VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- メールテンプレートごとの通知内容/メンション設定を保存する列
+ALTER TABLE email_templates
+    ADD COLUMN IF NOT EXISTS chatwork_message_template TEXT NULL AFTER mail_body,
+    ADD COLUMN IF NOT EXISTS chatwork_mention_ids VARCHAR(255) NULL AFTER chatwork_message_template;
+
+-- サンプルメンションデータ
+-- INSERT INTO chatwork_mention_masters (name, chatwork_id) VALUES ('営業A', '12345678');
