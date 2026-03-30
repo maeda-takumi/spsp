@@ -142,6 +142,7 @@ function appendSupportInterviewRecordToSheet(array $record, array $writingRow, s
 {
     $accessToken = fetchSupportInterviewAccessToken(SUPPORT_INTERVIEW_SERVICE_ACCOUNT_FILE);
     $timestamp = date('Y-m-d H:i:s');
+    $recordedDate = date('Y-m-d');
     $range = rawurlencode(SUPPORT_INTERVIEW_SHEET_NAME . '!A:Z');
     $url = 'https://sheets.googleapis.com/v4/spreadsheets/'
         . rawurlencode(SUPPORT_INTERVIEW_SPREADSHEET_ID)
@@ -162,6 +163,8 @@ function appendSupportInterviewRecordToSheet(array $record, array $writingRow, s
             (string) ($writingRow['file_name'] ?? ''),
             (string) ($writingRow['writing'] ?? ''),
             (string) ($writingRow['writing_notes'] ?? ''),
+            $recordedDate,
+            true,
         ]],
     ];
 
