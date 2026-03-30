@@ -318,6 +318,7 @@ $existingDraft = $draftStmt->fetch() ?: [];
 $attachmentStmt = $pdo->prepare('SELECT id, file_name, file_path, created_at FROM customer_sales_record_email_attachments WHERE customer_sales_record_id = :record_id ORDER BY created_at DESC, id DESC');
 $attachmentStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
 $attachmentStmt->execute();
+$existingAttachments = $attachmentStmt->fetchAll();
 $defaultMailTo = FALLBACK_MAIL_TO;
 
 $defaultMailTo = '';
