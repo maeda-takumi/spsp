@@ -1117,8 +1117,9 @@ require 'header.php';
               <tbody>
               <?php foreach ($writings as $writing): ?>
                 <tr>
-                  <td><?= h((string) ($writing['id'] ?? '')); ?></td>
-                  <td><?= h((string) ($writing['updated_at'] ?? '')); ?></td>
+                  <td data-label="ID"><?= h((string) ($writing['id'] ?? '')); ?></td>
+                  <td data-label="登録日"><?= h((string) ($writing['updated_at'] ?? '')); ?></td>
+                  <td data-label="操作">
                   <td>
                     <button
                       type="button"
