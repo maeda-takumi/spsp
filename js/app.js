@@ -40,7 +40,14 @@
         if (!response.ok) {
           throw new Error(`status=${response.status}`);
         }
-        window.location.reload();
+        const completedAt = formatImportedAt(new Date());
+        if (importCompletedAtNode) {
+          importCompletedAtNode.textContent = `最終取込: ${completedAt}`;
+        }
+
+        const url = new URL(window.location.href);
+        url.searchParams.set('import_completed_at', completedAt);
+        window.location.href = url.toString();
       } catch (error) {
         window.alert('DB取り込みに失敗しました。時間をおいて再度お試しください。');
         importSheetButton.disabled = false;

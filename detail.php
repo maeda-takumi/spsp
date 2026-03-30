@@ -788,6 +788,11 @@ $customerFields = [
 ];
 
 $pageTitle = '顧客詳細';
+$showImportButton = true;
+$importCompletedAt = trim((string) ($_GET['import_completed_at'] ?? ''));
+if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $importCompletedAt)) {
+    $importCompletedAt = '';
+}
 require 'header.php';
 ?>
 <div class="glass-board" aria-hidden="true" style="display:none;"></div>
@@ -822,9 +827,6 @@ require 'header.php';
   <section class="main-panel detail-main-panel">
     <header class="detail-page-header">
       <h2>顧客詳細</h2>
-      <button type="button" class="btn btn-icon" data-run-import-sheet aria-label="シートをDBに取り込み">
-        <img src="img/db.png" alt="" loading="lazy">
-      </button>
     </header>
     <div class="detail-columns">
       <section id="customer-info" class="panel content-panel detail-panel">

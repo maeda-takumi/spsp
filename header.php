@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 $pageTitle = $pageTitle ?? 'Dashboard';
+$showImportButton = $showImportButton ?? false;
+$importCompletedAt = isset($importCompletedAt) && is_string($importCompletedAt) ? trim($importCompletedAt) : '';
 ?>
 <!doctype html>
 <html lang="ja">
@@ -16,3 +18,16 @@ $pageTitle = $pageTitle ?? 'Dashboard';
 <div class="bg-blur bg-blur-top" aria-hidden="true"></div>
 <div class="bg-blur bg-blur-bottom" aria-hidden="true"></div>
 <main class="page-wrap">
+    <header class="app-header panel">
+        <h1 class="app-header-title">SUPSUP-NEO</h1>
+        <?php if ($showImportButton): ?>
+            <div class="app-header-tools">
+                <button type="button" class="btn btn-icon" data-run-import-sheet aria-label="シートをDBに取り込み">
+                    <img src="img/db.png" alt="" loading="lazy">
+                </button>
+                <span class="import-completed-at" data-import-completed-at>
+                    <?= $importCompletedAt !== '' ? '最終取込: ' . htmlspecialchars($importCompletedAt, ENT_QUOTES, 'UTF-8') : '最終取込: 未実行'; ?>
+                </span>
+            </div>
+        <?php endif; ?>
+    </header>

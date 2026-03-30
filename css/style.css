@@ -33,6 +33,38 @@ body {
   padding: 0 20px 36px;
 }
 
+.app-header {
+  margin-bottom: 14px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.app-header-title {
+  margin: 0;
+  font-size: clamp(1.3rem, 2.2vw, 2rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  background: linear-gradient(90deg, #1f51d6 0 80%, #ffcf33 80% 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.app-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.import-completed-at {
+  font-size: 0.8rem;
+  color: rgba(16, 45, 109, 0.86);
+  font-weight: 600;
+}
 .bg-blur {
   position: fixed;
   width: 360px;
@@ -321,6 +353,11 @@ body {
   .page-wrap {
     margin-top: 20px;
     padding: 0 12px 24px;
+  }
+
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .main-panel,
