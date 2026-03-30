@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-const CHATWORK_API_KEY = 'fee574510c5ce22d78b85282a0a8acaa';
-const CHATWORK_ROOM_ID = '404615917';
+const CHATWORK_API_KEY = '148e610a926709fbe91778aa36d8612c';
+const CHATWORK_ROOM_ID = '383085827';
 const DEFAULT_CHATWORK_MESSAGE_TEMPLATE = "■新規 送付メール送信完了■※カリキュラム表、個別活動表送付OK\n【db[template_name]】 mention[sales_staff]\ndb[full_name]（db[line_name]）";
 
 function renderChatworkMessageTemplate(string $template, array $context, array $mentionMastersByName, array $actorMastersByName = []): string
@@ -59,6 +59,9 @@ function renderChatworkMessageTemplate(string $template, array $context, array $
             return $actorDisplayName;
         }
 
+        if ($key === 'video_staff' && $lookupName === 'しらほしなつみ') {
+            return '';
+        }
         $mentionCandidates = $mentionMastersByName[$lookupName] ?? [];
         if (count($mentionCandidates) !== 1) {
             throw new RuntimeException(sprintf('mention[%s] の参照値「%s」に一致するメンション先が%s件です。', $key, $lookupName, count($mentionCandidates)));
