@@ -24,6 +24,7 @@ function db(): PDO
 }
 
 const GOOGLE_OAUTH_TOKEN_FILE =  'download/google_oauth_token.json';
+const GOOGLE_OAUTH_CLIENT_FILE = 'download/google_oauth_client_secret.json';
 const MAIL_SENDER = 'systemsoufu@gmail.com';
 const FALLBACK_MAIL_TO = MAIL_SENDER;
 const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
@@ -79,20 +80,41 @@ function getGmailAccessToken(): string
         throw new RuntimeException('Google OAuthトークンファイルのJSON形式が不正です。');
     }
 
-    $appData = [];
+    $tokenAppData = [];
     if (isset($tokenData['installed']) && is_array($tokenData['installed'])) {
-        $appData = $tokenData['installed'];
+        $tokenAppData = $tokenData['installed'];
     } elseif (isset($tokenData['web']) && is_array($tokenData['web'])) {
-        $appData = $tokenData['web'];
+        $tokenAppData = $tokenData['web'];
     }
 
-    $clientId = (string) ($tokenData['client_id'] ?? $appData['client_id'] ?? '');
-    $clientSecret = (string) ($tokenData['client_secret'] ?? $appData['client_secret'] ?? '');
+    $clientData = [];
+    if (is_file(GOOGLE_OAUTH_CLIENT_FILE)) {
+        $clientRaw = file_get_contents(GOOGLE_OAUTH_CLIENT_FILE);
+        if ($clientRaw === false) {
+            throw new RuntimeException('Google OAuthクライアント設定ファイルの読み込みに失敗しました。');
+        }
+
+        $decodedClientData = json_decode($clientRaw, true);
+        if (!is_array($decodedClientData)) {
+            throw new RuntimeException('Google OAuthクライアント設定ファイルのJSON形式が不正です。');
+        }
+
+        if (isset($decodedClientData['installed']) && is_array($decodedClientData['installed'])) {
+            $clientData = $decodedClientData['installed'];
+        } elseif (isset($decodedClientData['web']) && is_array($decodedClientData['web'])) {
+            $clientData = $decodedClientData['web'];
+        } else {
+            $clientData = $decodedClientData;
+        }
+    }
+
+    $clientId = (string) ($tokenData['client_id'] ?? $tokenAppData['client_id'] ?? $clientData['client_id'] ?? '');
+    $clientSecret = (string) ($tokenData['client_secret'] ?? $tokenAppData['client_secret'] ?? $clientData['client_secret'] ?? '');
     $refreshToken = (string) ($tokenData['refresh_token'] ?? '');
-    $tokenUri = (string) ($tokenData['token_uri'] ?? $appData['token_uri'] ?? 'https://oauth2.googleapis.com/token');
+    $tokenUri = (string) ($tokenData['token_uri'] ?? $tokenAppData['token_uri'] ?? $clientData['token_uri'] ?? 'https://oauth2.googleapis.com/token');
 
     if ($clientId === '' || $clientSecret === '' || $refreshToken === '') {
-        throw new RuntimeException('Google OAuthトークンファイルに client_id / client_secret / refresh_token が不足しています。');
+        throw new RuntimeException('Google OAuth情報が不足しています。google_oauth_token.json に refresh_token、google_oauth_token.json または google_oauth_client_secret.json に client_id / client_secret を設定してください。');
     }
 
     $body = http_build_query([
