@@ -44,7 +44,12 @@ function renderChatworkMessageTemplate(string $template, array $context, array $
             throw new RuntimeException(sprintf('mention[%s] のchatwork_idが不正です。', $key));
         }
 
-        return '[To:' . $chatworkId . ']';
+        $mentionName = trim((string) ($mentionCandidates[0]['name'] ?? $lookupName));
+        if ($mentionName === '') {
+            $mentionName = $lookupName;
+        }
+
+        return '[To:' . $chatworkId . ']' . $mentionName . 'さん';
     }, $normalizedTemplate);
 
     if (!is_string($rendered)) {
