@@ -8,16 +8,26 @@ const DEFAULT_CHATWORK_MESSAGE_TEMPLATE = "■新規 送付メール送信完了
 
 function renderChatworkMessageTemplate(string $template, array $context, array $mentionMastersByName): string
 {
-    $normalizedTemplate = strtr($template, [
-        '[メールテンプレート名]' => 'db[template_name]',
-        '[template_name]' => 'db[template_name]',
-        '[sales_staf]' => 'db[sales_staff]',
-        '[sales_staff]' => 'db[sales_staff]',
-        '[full_name]' => 'db[full_name]',
-        '[line_name]' => 'db[line_name]',
-        '[video_staff]' => 'db[video_staff]',
-    ]);
+    $legacyPlaceholders = [
+        'メールテンプレート名' => 'db[template_name]',
+        'template_name' => 'db[template_name]',
+        'sales_staf' => 'db[sales_staff]',
+        'sales_staff' => 'db[sales_staff]',
+        'full_name' => 'db[full_name]',
+        'line_name' => 'db[line_name]',
+        'video_staff' => 'db[video_staff]',
+    ];
 
+    // 旧記法の [xxx] を db[xxx] に正規化する。
+    // mention[xxx] / db[xxx] の内部までは変換しないよう、直前が英数字/アンダースコアのケースは除外する。
+    $normalizedTemplate = preg_replace_callback('/(?<![a-zA-Z0-9_])\[([^\[\]]+)\]/u', static function (array $matches) use ($legacyPlaceholders): string {
+        $placeholder = trim((string) $matches[1]);
+        return $legacyPlaceholders[$placeholder] ?? $matches[0];
+    }, $template);
+
+    if (!is_string($normalizedTemplate)) {
+        throw new RuntimeException('Chatwork通知テンプレートの正規化に失敗しました。');
+    }
     $rendered = preg_replace_callback('/(db|mention)\[([a-zA-Z0-9_]+)\]/', static function (array $matches) use ($context, $mentionMastersByName): string {
         $type = $matches[1];
         $key = $matches[2];
