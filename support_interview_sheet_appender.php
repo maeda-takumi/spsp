@@ -232,6 +232,28 @@ function supportInterviewMarkCompleted(string $spreadsheetId, string $sheetName,
     supportInterviewHttpPostJson($url, $payload, ['Authorization: Bearer ' . $accessToken]);
 }
 
+function supportInterviewMarkMailCompleted(string $spreadsheetId, string $sheetName, int $rowNumber, string $accessToken): void
+{
+    $range = $sheetName . '!O' . $rowNumber . ':P' . $rowNumber;
+    $url = 'https://sheets.googleapis.com/v4/spreadsheets/'
+        . rawurlencode($spreadsheetId)
+        . '/values:batchUpdate';
+
+    $payload = [
+        'valueInputOption' => 'USER_ENTERED',
+        'data' => [
+            [
+                'range' => $range,
+                'majorDimension' => 'ROWS',
+                'values' => [
+                    [date('Y/m/d'), 'TRUE'],
+                ],
+            ],
+        ],
+    ];
+
+    supportInterviewHttpPostJson($url, $payload, ['Authorization: Bearer ' . $accessToken]);
+}
 function appendSupportInterviewRecordToSheet(array $record, array $writingData, string $action): void
 {
     unset($writingData, $action);
@@ -256,6 +278,35 @@ function appendSupportInterviewRecordToSheet(array $record, array $writingData, 
     }
 
     supportInterviewMarkCompleted(
+        SUPPORT_INTERVIEW_SPREADSHEET_ID,
+        SUPPORT_INTERVIEW_SHEET_NAME,
+        $rowNumber,
+        $accessToken
+    );
+}
+
+function appendSupportInterviewMailCompletedToSheet(array $record): void
+{
+    $sheetId = trim((string) ($record['sheet_id'] ?? ''));
+    if ($sheetId === '') {
+        throw new RuntimeException('連携対象のsheet_idがありません。');
+    }
+
+    $serviceAccountFilePath = __DIR__ . '/' . SUPPORT_INTERVIEW_SERVICE_ACCOUNT_FILE;
+    $accessToken = supportInterviewFetchAccessToken($serviceAccountFilePath);
+
+    $rowNumber = supportInterviewFindRowNumberBySheetId(
+        SUPPORT_INTERVIEW_SPREADSHEET_ID,
+        SUPPORT_INTERVIEW_SHEET_NAME,
+        $sheetId,
+        $accessToken
+    );
+
+    if ($rowNumber === null) {
+        throw new RuntimeException('送付管理シートにsheet_id=' . $sheetId . ' の行が見つかりません。');
+    }
+
+    supportInterviewMarkMailCompleted(
         SUPPORT_INTERVIEW_SPREADSHEET_ID,
         SUPPORT_INTERVIEW_SHEET_NAME,
         $rowNumber,

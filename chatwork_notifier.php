@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 // 本番用
-const CHATWORK_API_KEY = '148e610a926709fbe91778aa36d8612c';
-const CHATWORK_ROOM_ID = '383085827';
+// const CHATWORK_API_KEY = '148e610a926709fbe91778aa36d8612c';
+// const CHATWORK_ROOM_ID = '383085827';
 // テスト用
-// const CHATWORK_API_KEY = 'fee574510c5ce22d78b85282a0a8acaa';
-// const CHATWORK_ROOM_ID = '404615917';
+const CHATWORK_API_KEY = 'fee574510c5ce22d78b85282a0a8acaa';
+const CHATWORK_ROOM_ID = '404615917';
 const DEFAULT_CHATWORK_MESSAGE_TEMPLATE = "■新規 送付メール送信完了■※カリキュラム表、個別活動表送付OK\n【db[template_name]】 mention[sales_staff]\ndb[full_name]（db[line_name]）";
 
 function renderChatworkMessageTemplate(string $template, array $context, array $mentionMastersByName, array $actorMastersByName = []): string

@@ -738,12 +738,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sendLogStmt->execute();
 
                 try {
+                    appendSupportInterviewMailCompletedToSheet($record);
+                } catch (Throwable $e) {
+                    $errors[] = '送付メール完了のスプレッドシート連携に失敗しました。' . $e->getMessage();
+                }
+                try {
                     sendChatworkNotification($notificationMessage);
                 } catch (Throwable $chatworkError) {
                     error_log('Chatwork通知エラー: ' . $chatworkError->getMessage());
                 }
-                header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&mail_sent=1&refresh=' . time() . '#email-compose');
-                exit;
+                if ($errors === []) {
+                    header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&mail_sent=1&refresh=' . time() . '#email-compose');
+                    exit;
+                }
             }
 
             if ($errors === []) {
