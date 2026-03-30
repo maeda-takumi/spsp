@@ -30,6 +30,23 @@ function getQuery(string $key): ?string
     return $value === '' ? null : $value;
 }
 
+function tableHasColumn(PDO $pdo, string $tableName, string $columnName): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT 1
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = :schema
+           AND TABLE_NAME = :table_name
+           AND COLUMN_NAME = :column_name
+         LIMIT 1'
+    );
+    $stmt->bindValue(':schema', DB_NAME);
+    $stmt->bindValue(':table_name', $tableName);
+    $stmt->bindValue(':column_name', $columnName);
+    $stmt->execute();
+
+    return (bool) $stmt->fetchColumn();
+}
 $name = getQuery('name');
 $videoStaff = getQuery('video_staff');
 $salesStaff = getQuery('sales_staff');
@@ -58,6 +75,8 @@ $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
 $pdo = db();
 
+$videoStaffColumn = tableHasColumn($pdo, 'customer_sales_records', 'video_dtaff') ? 'video_dtaff' : 'video_staff';
+
 $countStmt = $pdo->prepare("SELECT COUNT(*) FROM customer_sales_records {$whereSql}");
 foreach ($params as $key => $value) {
     $countStmt->bindValue($key, $value);
@@ -70,7 +89,7 @@ if ($page > $totalPages) {
     $offset = ($page - 1) * $perPage;
 }
 
-$sql = "SELECT sheet_id, entry_point, status, line_name
+$sql = "SELECT sheet_id, entry_point, status, line_name, full_name, {$videoStaffColumn} AS video_staff_display, sales_staff
         FROM customer_sales_records
         {$whereSql}
         ORDER BY updated_at DESC
@@ -112,13 +131,13 @@ require 'header.php';
   <aside class="side-panel">
     <!-- <img class="avatar" src="img/neo.png" alt="担当者アイコン" loading="lazy"> -->
     <h1>SUP-SUP NEO</h1>
-    <p>LINKS</p>
+    <!-- <p>LINKS</p>
 
     <nav class="side-nav" aria-label="メニュー">
       <a href="">DUMMY-LINK</a>
       <a href="">DUMMY-LINK</a>
       <a href="">DUMMY-LINK</a>
-    </nav>
+    </nav> -->
   </aside>
 
   <section class="main-panel">
@@ -170,6 +189,9 @@ require 'header.php';
             <th>入口</th>
             <th>状態</th>
             <th>LINE名</th>
+            <th>本名</th>
+            <th>演者名</th>
+            <th>セールス名</th>
             <th>操作</th>
           </tr>
           </thead>
@@ -180,6 +202,9 @@ require 'header.php';
               <td><span class="badge"><?= h((string) ($row['entry_point'] ?? '')); ?></span></td>
               <td><?= h((string) ($row['status'] ?? '')); ?></td>
               <td><?= h((string) ($row['line_name'] ?? '')); ?></td>
+              <td><?= h((string) ($row['full_name'] ?? '')); ?></td>
+              <td><?= h((string) ($row['video_staff_display'] ?? '')); ?></td>
+              <td><?= h((string) ($row['sales_staff'] ?? '')); ?></td>
               <td><a class="btn btn-ghost" href="detail.php?sheet_id=<?= rawurlencode((string) ($row['sheet_id'] ?? '')); ?>">詳細</a></td>
             </tr>
           <?php endforeach; ?>

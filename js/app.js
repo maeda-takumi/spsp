@@ -30,6 +30,7 @@
   }
   const importSheetButton = document.querySelector('[data-run-import-sheet]');
   const importCompletedAtNode = document.querySelector('[data-import-completed-at]');
+  const globalLoadingOverlay = document.querySelector('[data-global-loading-overlay]');
   const formatImportedAt = (date) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -42,6 +43,9 @@
   if (importSheetButton) {
     importSheetButton.addEventListener('click', async () => {
       importSheetButton.disabled = true;
+      if (globalLoadingOverlay) {
+        globalLoadingOverlay.hidden = false;
+      }
       try {
         const response = await window.fetch('import_sheet_to_db.php', {
           method: 'GET',
@@ -65,10 +69,27 @@
       } catch (error) {
         window.alert('DB取り込みに失敗しました。時間をおいて再度お試しください。');
         importSheetButton.disabled = false;
+        if (globalLoadingOverlay) {
+          globalLoadingOverlay.hidden = true;
+        }
       }
     });
   }
 
+  const copyButtons = document.querySelectorAll('[data-copy-value]');
+  if (copyButtons.length > 0) {
+    copyButtons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        const value = button.getAttribute('data-copy-value') || '';
+        try {
+          await navigator.clipboard.writeText(value);
+          window.alert('クリップボードに保存しました');
+        } catch (error) {
+          window.alert('クリップボードへの保存に失敗しました');
+        }
+      });
+    });
+  }
   const openButtons = document.querySelectorAll('[data-open-modal]');
   if (openButtons.length === 0) {
     return;

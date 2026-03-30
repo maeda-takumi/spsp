@@ -15,6 +15,11 @@ $importCompletedAt = isset($importCompletedAt) && is_string($importCompletedAt) 
     <link rel="stylesheet" href="css/style.css?v=<?= time(); ?>">
 </head>
 <body>
+<div class="global-loading-overlay" data-global-loading-overlay hidden>
+    <div class="global-loading-overlay__content">
+        <p>取り込み中...</p>
+    </div>
+</div>
 <div class="bg-blur bg-blur-top" aria-hidden="true"></div>
 <div class="bg-blur bg-blur-bottom" aria-hidden="true"></div>
 <main class="page-wrap">

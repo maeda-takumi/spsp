@@ -835,7 +835,18 @@ require 'header.php';
           <?php foreach ($customerFields as $field => $label): ?>
             <article class="customer-item">
               <span><?= h($label); ?></span>
-              <strong><?= h((string) ($record[$field] ?? '')); ?></strong>
+              <?php $fieldValue = (string) ($record[$field] ?? ''); ?>
+              <strong class="copyable-value">
+                <span><?= h($fieldValue); ?></span>
+                <button
+                  type="button"
+                  class="copy-button"
+                  data-copy-value="<?= h($fieldValue); ?>"
+                  aria-label="<?= h($label); ?>をクリップボードにコピー"
+                >
+                  <img src="img/copy.png" alt="" loading="lazy">
+                </button>
+              </strong>
             </article>
           <?php endforeach; ?>
         </div>
