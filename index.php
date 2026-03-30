@@ -92,7 +92,7 @@ if ($page > $totalPages) {
 $sql = "SELECT sheet_id, entry_point, status, line_name, full_name, {$videoStaffColumn} AS video_staff_display, sales_staff
         FROM customer_sales_records
         {$whereSql}
-        ORDER BY updated_at DESC
+        ORDER BY sheet_id DESC
         LIMIT :limit OFFSET :offset";
 
 $stmt = $pdo->prepare($sql);
