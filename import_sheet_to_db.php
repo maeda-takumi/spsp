@@ -63,6 +63,45 @@ function httpPostJson(string $url, array $payload, array $headers = []): array
     return $decoded;
 }
 
+function httpPostForm(string $url, array $payload, array $headers = []): array
+{
+    $ch = curl_init($url);
+    if ($ch === false) {
+        throw new RuntimeException('curl初期化に失敗しました');
+    }
+
+    $allHeaders = array_merge(['Content-Type: application/x-www-form-urlencoded'], $headers);
+
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => $allHeaders,
+        CURLOPT_POSTFIELDS => http_build_query($payload),
+        CURLOPT_TIMEOUT => 30,
+    ]);
+
+    $raw = curl_exec($ch);
+    if ($raw === false) {
+        $err = curl_error($ch);
+        curl_close($ch);
+        throw new RuntimeException('HTTP POST失敗: ' . $err);
+    }
+
+    $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    curl_close($ch);
+
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        throw new RuntimeException('JSONデコードに失敗しました。response=' . $raw);
+    }
+
+    if ($status >= 400) {
+        throw new RuntimeException('HTTPエラー: status=' . $status . ' response=' . $raw);
+    }
+
+    return $decoded;
+}
+
 function httpGetJson(string $url, array $headers = []): array
 {
     $ch = curl_init($url);
@@ -141,10 +180,10 @@ function fetchAccessTokenFromServiceAccount(string $serviceAccountFile): string
 
     $jwt = $jwtUnsigned . '.' . base64UrlEncode($signature);
 
-    $tokenResponse = httpPostJson($tokenUri, [
+    $tokenResponse = httpPostForm($tokenUri, [
         'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
         'assertion' => $jwt,
-    ], ['Content-Type: application/json']);
+    ]);
 
     $accessToken = $tokenResponse['access_token'] ?? null;
     if (!is_string($accessToken) || $accessToken === '') {
