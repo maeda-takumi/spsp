@@ -441,7 +441,10 @@ try {
     $stmt = $pdo->prepare($insertSql);
 
     $pdo->beginTransaction();
-    $pdo->exec('TRUNCATE TABLE ' . TARGET_TABLE);
+    // TRUNCATE は外部キー参照中テーブルで実行できないため、
+    // ON DELETE CASCADE を活かして親テーブルを DELETE で全削除する。
+    $pdo->exec('DELETE FROM ' . TARGET_TABLE);
+    $pdo->exec('ALTER TABLE ' . TARGET_TABLE . ' AUTO_INCREMENT = 1');
 
     $inserted = 0;
     foreach (array_slice($values, 1) as $row) {
