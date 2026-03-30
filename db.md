@@ -1,7 +1,7 @@
 CREATE TABLE customer_sales_records (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 
-    sheet_id VARCHAR(100) NULL COMMENT 'スプシのID',
+    sheet_id VARCHAR(100) NOT NULL COMMENT 'スプシのID',
     serial_no INT NULL COMMENT '通し番号',
 
     sales_year_month CHAR(7) NULL COMMENT 'YYYY-MM',
@@ -46,12 +46,13 @@ CREATE TABLE customer_sales_records (
     INDEX idx_sales_date (sales_date),
     INDEX idx_payment_date (payment_date),
     INDEX idx_phone_number (phone_number),
-    INDEX idx_email (email)
+    INDEX idx_email (email),
+    UNIQUE KEY uniq_sheet_id (sheet_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE customer_sales_record_writings (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    sheet_id BIGINT UNSIGNED NOT NULL,
+    sheet_id VARCHAR(100) NOT NULL,
     file_name VARCHAR(255) NOT NULL,
     writing TEXT,
     writing_notes TEXT,
@@ -61,7 +62,7 @@ CREATE TABLE customer_sales_record_writings (
     KEY idx_customer_sales_record_writings_sheet_id (sheet_id),
     CONSTRAINT fk_customer_sales_record_writings_sheet_id
         FOREIGN KEY (sheet_id)
-        REFERENCES customer_sales_records (id)
+        REFERENCES customer_sales_records (sheet_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -78,7 +79,7 @@ CREATE TABLE email_templates (
 
 CREATE TABLE customer_sales_record_email_drafts (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    customer_sales_record_id BIGINT UNSIGNED NOT NULL,
+    customer_sales_record_id VARCHAR(100) NOT NULL,
     email_template_id BIGINT UNSIGNED NULL,
     mail_subject VARCHAR(255) NULL,
     mail_body TEXT NULL,
@@ -88,7 +89,7 @@ CREATE TABLE customer_sales_record_email_drafts (
     UNIQUE KEY uniq_customer_sales_record_id (customer_sales_record_id),
     CONSTRAINT fk_customer_sales_record_email_drafts_record_id
         FOREIGN KEY (customer_sales_record_id)
-        REFERENCES customer_sales_records (id)
+        REFERENCES customer_sales_records (sheet_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE,
     CONSTRAINT fk_customer_sales_record_email_drafts_template_id
@@ -100,7 +101,7 @@ CREATE TABLE customer_sales_record_email_drafts (
 
 CREATE TABLE customer_sales_record_email_send_logs (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    customer_sales_record_id BIGINT UNSIGNED NOT NULL,
+    customer_sales_record_id VARCHAR(100) NOT NULL,
     email_template_id BIGINT UNSIGNED NULL,
     mail_subject VARCHAR(255) NOT NULL,
     mail_body TEXT NOT NULL,
@@ -109,7 +110,7 @@ CREATE TABLE customer_sales_record_email_send_logs (
     KEY idx_customer_sales_record_email_send_logs_record_id (customer_sales_record_id),
     CONSTRAINT fk_customer_sales_record_email_send_logs_record_id
         FOREIGN KEY (customer_sales_record_id)
-        REFERENCES customer_sales_records (id)
+        REFERENCES customer_sales_records (sheet_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE,
     CONSTRAINT fk_customer_sales_record_email_send_logs_template_id
@@ -135,3 +136,46 @@ ALTER TABLE email_templates
 
 -- サンプルメンションデータ
 -- INSERT INTO chatwork_mention_masters (name, chatwork_id) VALUES ('営業A', '12345678');
+
+CREATE TABLE customer_sales_record_email_attachments (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    customer_sales_record_id VARCHAR(100) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_customer_sales_record_email_attachments_record_id (customer_sales_record_id),
+    CONSTRAINT fk_customer_sales_record_email_attachments_record_id
+        FOREIGN KEY (customer_sales_record_id)
+        REFERENCES customer_sales_records (sheet_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE customer_memo (
+    sheet_id VARCHAR(100) NOT NULL,
+    memo TEXT NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (sheet_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 既存データ移行時の例（customer_sales_records.id を保持している場合）
+-- 1) 型をsheet_id向けに変更
+-- ALTER TABLE customer_sales_record_email_drafts MODIFY customer_sales_record_id VARCHAR(100) NOT NULL;
+-- ALTER TABLE customer_sales_record_email_send_logs MODIFY customer_sales_record_id VARCHAR(100) NOT NULL;
+-- ALTER TABLE customer_sales_record_email_attachments MODIFY customer_sales_record_id VARCHAR(100) NOT NULL;
+-- ALTER TABLE customer_sales_record_writings MODIFY sheet_id VARCHAR(100) NOT NULL;
+--
+-- 2) 値を customer_sales_records.sheet_id に変換
+-- UPDATE customer_sales_record_email_drafts d
+-- JOIN customer_sales_records r ON d.customer_sales_record_id = CAST(r.id AS CHAR)
+-- SET d.customer_sales_record_id = r.sheet_id;
+-- UPDATE customer_sales_record_email_send_logs l
+-- JOIN customer_sales_records r ON l.customer_sales_record_id = CAST(r.id AS CHAR)
+-- SET l.customer_sales_record_id = r.sheet_id;
+-- UPDATE customer_sales_record_email_attachments a
+-- JOIN customer_sales_records r ON a.customer_sales_record_id = CAST(r.id AS CHAR)
+-- SET a.customer_sales_record_id = r.sheet_id;
+-- UPDATE customer_sales_record_writings w
+-- JOIN customer_sales_records r ON w.sheet_id = CAST(r.id AS CHAR)
+-- SET w.sheet_id = r.sheet_id;

@@ -295,7 +295,7 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS email_templates (
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_drafts (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    customer_sales_record_id BIGINT UNSIGNED NOT NULL,
+    customer_sales_record_id VARCHAR(100) NOT NULL,
     email_template_id BIGINT UNSIGNED NULL,
     mail_subject VARCHAR(255) NULL,
     mail_body TEXT NULL,
@@ -305,7 +305,7 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_drafts (
     UNIQUE KEY uniq_customer_sales_record_id (customer_sales_record_id),
     CONSTRAINT fk_customer_sales_record_email_drafts_record_id
         FOREIGN KEY (customer_sales_record_id)
-        REFERENCES customer_sales_records (id)
+        REFERENCES customer_sales_records (sheet_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE,
     CONSTRAINT fk_customer_sales_record_email_drafts_template_id
@@ -317,7 +317,7 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_drafts (
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_attachments (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    customer_sales_record_id BIGINT UNSIGNED NOT NULL,
+    customer_sales_record_id VARCHAR(100) NOT NULL,
     file_name VARCHAR(255) NOT NULL,
     file_path VARCHAR(255) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -325,14 +325,14 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_attachments (
     KEY idx_customer_sales_record_email_attachments_record_id (customer_sales_record_id),
     CONSTRAINT fk_customer_sales_record_email_attachments_record_id
         FOREIGN KEY (customer_sales_record_id)
-        REFERENCES customer_sales_records (id)
+        REFERENCES customer_sales_records (sheet_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_send_logs (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    customer_sales_record_id BIGINT UNSIGNED NOT NULL,
+    customer_sales_record_id VARCHAR(100) NOT NULL,
     email_template_id BIGINT UNSIGNED NULL,
     mail_subject VARCHAR(255) NOT NULL,
     mail_body TEXT NOT NULL,
@@ -341,7 +341,7 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_send_logs (
     KEY idx_customer_sales_record_email_send_logs_record_id (customer_sales_record_id),
     CONSTRAINT fk_customer_sales_record_email_send_logs_record_id
         FOREIGN KEY (customer_sales_record_id)
-        REFERENCES customer_sales_records (id)
+        REFERENCES customer_sales_records (sheet_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE,
     CONSTRAINT fk_customer_sales_record_email_send_logs_template_id
@@ -352,7 +352,7 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_send_logs (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS customer_memo (
-    sheet_id BIGINT(20) NOT NULL,
+    sheet_id VARCHAR(100) NOT NULL,
     memo TEXT NOT NULL,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (sheet_id)
@@ -380,7 +380,7 @@ if (!tableHasColumn($pdo, 'email_templates', 'chatwork_message_template')) {
 if (!tableHasColumn($pdo, 'email_templates', 'chatwork_mention_ids')) {
     $pdo->exec('ALTER TABLE email_templates ADD COLUMN chatwork_mention_ids VARCHAR(255) NULL AFTER chatwork_message_template');
 }
-$recordId = (int) ($record['id'] ?? 0);
+$recordSheetId = (string) ($record['sheet_id'] ?? $sheetId);
 $draftStmt = $pdo->prepare('SELECT email_template_id, mail_to, mail_subject, mail_body FROM customer_sales_record_email_drafts WHERE customer_sales_record_id = :record_id LIMIT 1');
 
 $mentionMasterStmt = $pdo->query('SELECT id, name, chatwork_id FROM chatwork_mention_masters ORDER BY id ASC');
@@ -411,12 +411,12 @@ if (tableExists($pdo, 'actor_table') && tableHasColumn($pdo, 'actor_table', 'nam
         $actorMastersByName[$actorNameKey][] = $actorMaster;
     }
 }
-$draftStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
+$draftStmt->bindValue(':record_id', $recordSheetId);
 $draftStmt->execute();
 $existingDraft = $draftStmt->fetch() ?: [];
 
 $attachmentStmt = $pdo->prepare('SELECT id, file_name, file_path, created_at FROM customer_sales_record_email_attachments WHERE customer_sales_record_id = :record_id ORDER BY created_at DESC, id DESC');
-$attachmentStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
+$attachmentStmt->bindValue(':record_id', $recordSheetId);
 $attachmentStmt->execute();
 $existingAttachments = $attachmentStmt->fetchAll();
 $defaultMailTo = FALLBACK_MAIL_TO;
@@ -425,17 +425,13 @@ $defaultMailTo = '';
 if (filter_var((string) ($record['email'] ?? ''), FILTER_VALIDATE_EMAIL)) {
     $defaultMailTo = (string) ($record['email'] ?? '');
 }
-$sheetIdForMemo = ctype_digit($sheetId) ? (int) $sheetId : null;
-$memoStmt = $sheetIdForMemo !== null
-    ? $pdo->prepare('SELECT memo FROM customer_memo WHERE sheet_id = :sheet_id LIMIT 1')
-    : null;
+$sheetIdForMemo = $sheetId;
+$memoStmt = $pdo->prepare('SELECT memo FROM customer_memo WHERE sheet_id = :sheet_id LIMIT 1');
 $memoValue = '';
-if ($memoStmt !== null) {
-    $memoStmt->bindValue(':sheet_id', $sheetIdForMemo, PDO::PARAM_INT);
-    $memoStmt->execute();
-    $memoRow = $memoStmt->fetch();
-    $memoValue = (string) ($memoRow['memo'] ?? '');
-}
+$memoStmt->bindValue(':sheet_id', $sheetIdForMemo);
+$memoStmt->execute();
+$memoRow = $memoStmt->fetch();
+$memoValue = (string) ($memoRow['memo'] ?? '');
 $memoError = '';
 
 $errors = [];
@@ -462,7 +458,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $formValues['writing'] = $writing;
     $formValues['writing_notes'] = $writingNotes;
     $audioFile = $_FILES['audio_file'] ?? null;
-    $recordId = (int) ($record['id'] ?? 0);
+    $recordSheetId = (string) ($record['sheet_id'] ?? $sheetId);
     $isUpdate = $action === 'update';
     $isDelete = $action === 'delete';
     $isWritingAction = $action === 'create' || $isUpdate || $isDelete;
@@ -472,25 +468,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'save_memo') {
         $memoInput = trim((string) ($_POST['memo'] ?? ''));
         $memoValue = $memoInput;
-        if ($sheetIdForMemo === null) {
-            $memoError = 'メモ保存対象のsheet_idが不正です。';
-        } elseif ($memoInput === '') {
+        if ($memoInput === '') {
             $memoError = 'メモを入力してください。';
         } else {
             $memoExistsStmt = $pdo->prepare('SELECT 1 FROM customer_memo WHERE sheet_id = :sheet_id LIMIT 1');
-            $memoExistsStmt->bindValue(':sheet_id', $sheetIdForMemo, PDO::PARAM_INT);
+            $memoExistsStmt->bindValue(':sheet_id', $sheetIdForMemo);
             $memoExistsStmt->execute();
             $memoExists = (bool) $memoExistsStmt->fetchColumn();
 
             if ($memoExists) {
                 $updateMemoStmt = $pdo->prepare('UPDATE customer_memo SET memo = :memo WHERE sheet_id = :sheet_id');
-                $updateMemoStmt->bindValue(':sheet_id', $sheetIdForMemo, PDO::PARAM_INT);
+                $updateMemoStmt->bindValue(':sheet_id', $sheetIdForMemo);
                 $updateMemoStmt->bindValue(':memo', $memoInput);
                 $updateMemoStmt->execute();
             } else {
                 $insertMemoStmt = $pdo->prepare('INSERT INTO customer_memo (sheet_id, memo) VALUES (:sheet_id, :memo)');
                 $insertMemoStmt->bindValue(':sheet_id', $sheetIdForMemo, PDO::PARAM_INT);
-                $insertMemoStmt->bindValue(':memo', $memoInput);
+                $insertMemoStmt->bindValue(':sheet_id', $sheetIdForMemo);
                 $insertMemoStmt->execute();
             }
             header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&memo_saved=1&refresh=' . time() . '#customer-memo');
@@ -621,7 +615,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  VALUES (:record_id, :template_id, :mail_to, :mail_subject, :mail_body)
                  ON DUPLICATE KEY UPDATE email_template_id = VALUES(email_template_id), mail_to = VALUES(mail_to), mail_subject = VALUES(mail_subject), mail_body = VALUES(mail_body)'
             );
-            $upsertDraftStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
+            $upsertDraftStmt->bindValue(':record_id', $recordSheetId);
             $upsertDraftStmt->bindValue(':template_id', $templateId > 0 ? $templateId : null, $templateId > 0 ? PDO::PARAM_INT : PDO::PARAM_NULL);
             $upsertDraftStmt->bindValue(':mail_to', $mailTo);
             $upsertDraftStmt->bindValue(':mail_subject', $mailSubject);
@@ -645,7 +639,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             break;
                         }
 
-                        $insertAttachmentStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
+                        $insertAttachmentStmt->bindValue(':record_id', $recordSheetId);
                         $insertAttachmentStmt->bindValue(':file_name', $attachmentUploadRow['original_name']);
                         $insertAttachmentStmt->bindValue(':file_path', 'uploads/email_attachments/' . $attachmentUploadRow['stored_file_name']);
                         $insertAttachmentStmt->execute();
@@ -693,7 +687,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $attachmentsForSendStmt = $pdo->prepare(
                     'SELECT file_name, file_path FROM customer_sales_record_email_attachments WHERE customer_sales_record_id = :record_id ORDER BY created_at ASC, id ASC'
                 );
-                $attachmentsForSendStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
+                $attachmentsForSendStmt->bindValue(':record_id', $recordSheetId);
                 $attachmentsForSendStmt->execute();
                 $attachmentsForSendRows = $attachmentsForSendStmt->fetchAll();
                 $attachmentsForSend = [];
@@ -735,7 +729,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'INSERT INTO customer_sales_record_email_send_logs (customer_sales_record_id, email_template_id, mail_to, mail_subject, mail_body)
                      VALUES (:record_id, :template_id, :mail_to, :mail_subject, :mail_body)'
                 );
-                $sendLogStmt->bindValue(':record_id', $recordId, PDO::PARAM_INT);
+                $sendLogStmt->bindValue(':record_id', $recordSheetId);
                 $sendLogStmt->bindValue(':template_id', $templateId > 0 ? $templateId : null, $templateId > 0 ? PDO::PARAM_INT : PDO::PARAM_NULL);
                 $sendLogStmt->bindValue(':mail_to', $mailTo);
                 $sendLogStmt->bindValue(':mail_subject', $mailSubject);
@@ -765,7 +759,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($isWritingAction && ($isUpdate || $isDelete) && $errors === []) {
         $targetStmt = $pdo->prepare('SELECT id, file_name FROM customer_sales_record_writings WHERE id = :id AND sheet_id = :sheet_id LIMIT 1');
         $targetStmt->bindValue(':id', $writingId, PDO::PARAM_INT);
-        $targetStmt->bindValue(':sheet_id', $recordId, PDO::PARAM_INT);
+        $targetStmt->bindValue(':sheet_id', $recordSheetId);
         $targetStmt->execute();
         $targetWriting = $targetStmt->fetch();
 
@@ -779,7 +773,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($isWritingAction && $isDelete && $errors === []) {
         $deleteStmt = $pdo->prepare('DELETE FROM customer_sales_record_writings WHERE id = :id AND sheet_id = :sheet_id');
         $deleteStmt->bindValue(':id', $writingId, PDO::PARAM_INT);
-        $deleteStmt->bindValue(':sheet_id', $recordId, PDO::PARAM_INT);
+        $deleteStmt->bindValue(':sheet_id', $recordSheetId);
         $deleteStmt->execute();
 
         header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&deleted=1&refresh=' . time() . '#writing-list');
@@ -837,12 +831,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $updateStmt->bindValue(':writing', $writing === '' ? null : $writing);
             $updateStmt->bindValue(':writing_notes', $writingNotes === '' ? null : $writingNotes);
             $updateStmt->bindValue(':id', $writingId, PDO::PARAM_INT);
-            $updateStmt->bindValue(':sheet_id', $recordId, PDO::PARAM_INT);
+            $updateStmt->bindValue(':sheet_id', $recordSheetId);
             $updateStmt->execute();
             $noticeParam = 'updated=1';
         } else {
             $insertStmt = $pdo->prepare('INSERT INTO customer_sales_record_writings (sheet_id, file_name, writing, writing_notes) VALUES (:sheet_id, :file_name, :writing, :writing_notes)');
-            $insertStmt->bindValue(':sheet_id', $recordId, PDO::PARAM_INT);
+            $insertStmt->bindValue(':sheet_id', $recordSheetId);
             $insertStmt->bindValue(':file_name', $fileName);
             $insertStmt->bindValue(':writing', $writing === '' ? null : $writing);
             $insertStmt->bindValue(':writing_notes', $writingNotes === '' ? null : $writingNotes);
@@ -856,7 +850,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $writingsStmt = $pdo->prepare('SELECT id, file_name, writing, writing_notes, updated_at FROM customer_sales_record_writings WHERE sheet_id = :sheet_id ORDER BY updated_at DESC');
-$writingsStmt->bindValue(':sheet_id', (int) ($record['id'] ?? 0), PDO::PARAM_INT);
+$writingsStmt->bindValue(':sheet_id', $recordSheetId);
 $writingsStmt->execute();
 $writings = $writingsStmt->fetchAll();
 
