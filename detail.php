@@ -819,6 +819,7 @@ $writingsStmt->execute();
 $writings = $writingsStmt->fetchAll();
 
 $templatesStmt = $pdo->query('SELECT id, template_name, mail_subject, mail_body, chatwork_message_template, chatwork_mention_ids, updated_at FROM email_templates ORDER BY updated_at DESC, id DESC');
+$emailTemplates = $templatesStmt !== false ? $templatesStmt->fetchAll() : [];
 $customerFields = [
     'sheet_id' => 'シートID',
     'serial_no' => '通し番号',
