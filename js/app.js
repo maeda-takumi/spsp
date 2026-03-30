@@ -31,6 +31,58 @@
   const importSheetButton = document.querySelector('[data-run-import-sheet]');
   const importCompletedAtNode = document.querySelector('[data-import-completed-at]');
   const globalLoadingOverlay = document.querySelector('[data-global-loading-overlay]');
+  const IMPORT_COMPLETED_AT_STORAGE_KEY = 'import_completed_at';
+
+  const updateImportCompletedAtText = (completedAt) => {
+    if (!importCompletedAtNode) {
+      return;
+    }
+
+    if (completedAt) {
+      importCompletedAtNode.textContent = `最終取込: ${completedAt}`;
+      return;
+    }
+
+    importCompletedAtNode.textContent = '最終取込: 未実行';
+  };
+
+  const getStoredImportCompletedAt = () => {
+    try {
+      return window.localStorage.getItem(IMPORT_COMPLETED_AT_STORAGE_KEY) || '';
+    } catch (error) {
+      return '';
+    }
+  };
+
+  const saveImportCompletedAt = (completedAt) => {
+    if (!completedAt) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(IMPORT_COMPLETED_AT_STORAGE_KEY, completedAt);
+    } catch (error) {
+      // localStorageが利用できない場合は表示更新のみ行う
+    }
+  };
+
+  const syncImportCompletedAt = () => {
+    const url = new URL(window.location.href);
+    const fromQuery = (url.searchParams.get('import_completed_at') || '').trim();
+    if (fromQuery) {
+      saveImportCompletedAt(fromQuery);
+      updateImportCompletedAtText(fromQuery);
+      return;
+    }
+
+    const storedValue = getStoredImportCompletedAt();
+    if (storedValue) {
+      updateImportCompletedAtText(storedValue);
+    }
+  };
+
+  syncImportCompletedAt();
+
   const formatImportedAt = (date) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -59,9 +111,8 @@
           throw new Error(`unexpected response=${responseText}`);
         }
         const completedAt = formatImportedAt(new Date());
-        if (importCompletedAtNode) {
-          importCompletedAtNode.textContent = `最終取込: ${completedAt}`;
-        }
+        saveImportCompletedAt(completedAt);
+        updateImportCompletedAtText(completedAt);
 
         const url = new URL(window.location.href);
         url.searchParams.set('import_completed_at', completedAt);
@@ -161,6 +212,67 @@
         }
       }
 
+      if (modalId === 'template-form-modal') {
+        const mode = button.getAttribute('data-template-mode') || 'create';
+        const templateId = button.getAttribute('data-template-id') || '';
+        const templateName = button.getAttribute('data-template-name') || '';
+        const templateSubject = button.getAttribute('data-template-subject') || '';
+        const templateBody = button.getAttribute('data-template-body') || '';
+        const templateNotificationBody = button.getAttribute('data-template-notification-body') || '';
+        const defaultNotificationBody = modal.getAttribute('data-template-default-notification-body') || '';
+
+        const titleNode = modal.querySelector('[data-template-modal-title]');
+        const actionNode = modal.querySelector('[data-template-form-action]');
+        const idNode = modal.querySelector('[data-template-form-id]');
+        const nameNode = modal.querySelector('[data-template-form-name]');
+        const subjectNode = modal.querySelector('[data-template-form-subject]');
+        const bodyNode = modal.querySelector('[data-template-form-body]');
+        const notificationNode = modal.querySelector('[data-template-form-notification-body]');
+        const submitLabelNode = modal.querySelector('[data-template-submit-label]');
+        const deleteNode = modal.querySelector('[data-template-delete]');
+        const formNode = modal.querySelector('[data-template-form]');
+
+        const isEdit = mode === 'edit';
+        if (titleNode) {
+          titleNode.textContent = isEdit ? 'テンプレート編集' : 'テンプレート追加';
+        }
+        if (actionNode) {
+          actionNode.value = isEdit ? 'template_update' : 'template_create';
+        }
+        if (idNode) {
+          idNode.value = isEdit ? templateId : '';
+        }
+        if (nameNode) {
+          nameNode.value = isEdit ? templateName : '';
+        }
+        if (subjectNode) {
+          subjectNode.value = isEdit ? templateSubject : '';
+        }
+        if (bodyNode) {
+          bodyNode.value = isEdit ? templateBody : '';
+        }
+        if (notificationNode) {
+          notificationNode.value = isEdit ? templateNotificationBody : defaultNotificationBody;
+        }
+        if (submitLabelNode) {
+          submitLabelNode.textContent = isEdit ? '更新' : '追加';
+        }
+        if (deleteNode) {
+          deleteNode.hidden = !isEdit;
+        }
+        if (deleteNode && formNode) {
+          deleteNode.onclick = () => {
+            const ok = window.confirm('このテンプレートを削除しますか？');
+            if (!ok) {
+              return;
+            }
+            if (actionNode) {
+              actionNode.value = 'template_delete';
+            }
+            formNode.submit();
+          };
+        }
+      }
       modal.hidden = false;
     });
   });

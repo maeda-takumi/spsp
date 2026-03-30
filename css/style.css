@@ -728,8 +728,42 @@ audio {
 }
 
 .template-list {
-  display: grid;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #d7e5ff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.template-list-head {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.template-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  padding: 12px;
+  background: #f8fbff;
+}
+
+.template-list-item + .template-list-item {
+  border-top: 1px solid #d7e5ff;
+}
+
+.template-list-name {
+  margin: 0;
+  font-weight: 700;
+}
+
+.template-list-subject {
+  margin: 4px 0 0;
+  color: #557;
+  font-size: 13px;
 }
 
 .template-item {

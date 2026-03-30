@@ -1196,67 +1196,84 @@ require 'header.php';
       <button type="button" class="btn btn-ghost" data-close-modal>閉じる</button>
     </div>
 
+    <div class="template-list-head">
+      <button
+        type="button"
+        class="btn btn-primary"
+        data-open-modal="template-form-modal"
+        data-template-mode="create"
+      >
+        追加
+      </button>
+    </div>
+
     <?php if ($emailTemplates === []): ?>
       <p class="empty">テンプレートはまだありません。</p>
     <?php else: ?>
-      <div class="template-list">
+      <ul class="template-list">
         <?php foreach ($emailTemplates as $template): ?>
-          <form method="post" class="template-item">
-            <input type="hidden" name="template_id" value="<?= h((string) $template['id']); ?>">
-            <div class="field">
-              <label>テンプレート名</label>
-              <input type="text" name="template_name" value="<?= h((string) ($template['template_name'] ?? '')); ?>" required>
+          <li class="template-list-item">
+            <div>
+              <p class="template-list-name"><?= h((string) ($template['template_name'] ?? '')); ?></p>
+              <p class="template-list-subject"><?= h((string) ($template['mail_subject'] ?? '')); ?></p>
             </div>
-            <div class="field">
-              <label>件名</label>
-              <input type="text" name="template_subject" value="<?= h((string) ($template['mail_subject'] ?? '')); ?>" required>
-            </div>
-            <div class="field">
-              <label>本文</label>
-              <textarea name="template_body" rows="6" required><?= h((string) ($template['mail_body'] ?? '')); ?></textarea>
-            </div>
-            <div class="field">
-              <label>Chatwork通知本文</label>
-              <textarea name="template_notification_body" rows="6" required><?= h((string) (($template['chatwork_message_template'] ?? '') !== '' ? $template['chatwork_message_template'] : DEFAULT_CHATWORK_MESSAGE_TEMPLATE)); ?></textarea>
-            </div>
-            <div class="field">
-              <label>差し込みルール</label>
-              <p class="muted">文字列差し込みは <code>db[キー名]</code>、メンションは <code>mention[キー名]</code>、担当者表示は <code>actor[キー名]</code> を使用します。例: <code>mention[sales_staff]</code> / <code>actor[video_staff]</code>。</p>
-            </div>
-            <div class="actions">
-              <button class="btn btn-primary" type="submit" name="action" value="template_update">更新</button>
-              <button class="btn btn-ghost btn-danger" type="submit" name="action" value="template_delete">削除</button>
-            </div>
-          </form>
+            <button
+              type="button"
+              class="btn btn-ghost"
+              data-open-modal="template-form-modal"
+              data-template-mode="edit"
+              data-template-id="<?= h((string) $template['id']); ?>"
+              data-template-name="<?= h((string) ($template['template_name'] ?? '')); ?>"
+              data-template-subject="<?= h((string) ($template['mail_subject'] ?? '')); ?>"
+              data-template-body="<?= h((string) ($template['mail_body'] ?? '')); ?>"
+              data-template-notification-body="<?= h((string) (($template['chatwork_message_template'] ?? '') !== '' ? $template['chatwork_message_template'] : DEFAULT_CHATWORK_MESSAGE_TEMPLATE)); ?>"
+            >
+              編集
+            </button>
+          </li>
         <?php endforeach; ?>
-      </div>
+      </ul>
     <?php endif; ?>
 
-    <hr class="template-divider">
-    <form method="post" class="template-item">
-      <h4>テンプレート追加</h4>
+  </div>
+</div>
+<div
+  class="modal"
+  id="template-form-modal"
+  hidden
+  data-template-default-notification-body="<?= h(DEFAULT_CHATWORK_MESSAGE_TEMPLATE); ?>"
+>
+  <div class="modal-dialog panel content-panel">
+    <div class="section-head">
+      <h3 data-template-modal-title>テンプレート編集</h3>
+      <button type="button" class="btn btn-ghost" data-close-modal>閉じる</button>
+    </div>
+    <form method="post" class="template-item" data-template-form>
+      <input type="hidden" name="action" value="template_create" data-template-form-action>
+      <input type="hidden" name="template_id" value="" data-template-form-id>
       <div class="field">
         <label>テンプレート名</label>
-        <input type="text" name="template_name" value="<?= h($formValues['template_name']); ?>" required>
+        <input type="text" name="template_name" value="" required data-template-form-name>
       </div>
       <div class="field">
         <label>件名</label>
-        <input type="text" name="template_subject" value="<?= h($formValues['template_subject']); ?>" required>
+        <input type="text" name="template_subject" value="" required data-template-form-subject>
       </div>
       <div class="field">
         <label>本文</label>
-        <textarea name="template_body" rows="6" required><?= h($formValues['template_body']); ?></textarea>
+        <textarea name="template_body" rows="6" required data-template-form-body></textarea>
       </div>
       <div class="field">
         <label>Chatwork通知本文</label>
-        <textarea name="template_notification_body" rows="6" required><?= h($formValues['template_notification_body']); ?></textarea>
+        <textarea name="template_notification_body" rows="6" required data-template-form-notification-body></textarea>
       </div>
       <div class="field">
         <label>差し込みルール</label>
         <p class="muted">文字列差し込みは <code>db[キー名]</code>、メンションは <code>mention[キー名]</code>、担当者表示は <code>actor[キー名]</code> を使用します。例: <code>mention[sales_staff]</code> / <code>actor[video_staff]</code>。</p>
       </div>
       <div class="actions">
-        <button class="btn btn-primary" type="submit" name="action" value="template_create">追加</button>
+        <button class="btn btn-primary" type="submit" data-template-submit-label>追加</button>
+        <button class="btn btn-ghost btn-danger" type="button" hidden data-template-delete>削除</button>
       </div>
     </form>
   </div>
