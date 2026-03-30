@@ -258,6 +258,17 @@ function valueAt(array $row, int $index): ?string
     return array_key_exists($index, $row) ? trim((string) $row[$index]) : null;
 }
 
+function logMessage(string $message, bool $isError = false): void
+{
+    $line = '[' . date('Y-m-d H:i:s') . '] ' . $message . PHP_EOL;
+    $stream = $isError ? 'php://stderr' : 'php://stdout';
+    file_put_contents($stream, $line, FILE_APPEND);
+
+    if ($isError) {
+        error_log(trim($line));
+    }
+}
+
 $columnMap = [
     'sheet_id' => 0,
     'serial_no' => 1,
@@ -355,8 +366,10 @@ INSERT INTO customer_sales_records (
 SQL;
 
 try {
+    logMessage('Import started. table=' . TARGET_TABLE . ' sheet=' . SHEET_NAME);
     $accessToken = fetchAccessTokenFromServiceAccount(SERVICE_ACCOUNT_FILE);
     $values = fetchSheetValues(SPREADSHEET_ID, SHEET_NAME, $accessToken);
+    logMessage('Sheet fetched. rows=' . count($values));
 
     if (count($values) <= 1) {
         throw new RuntimeException('対象データが見つかりません（ヘッダーのみ、または空です）');
@@ -374,6 +387,7 @@ try {
             continue;
         }
 
+        $rowNumber = $inserted + 2; // スプレッドシート上の実行行番号（ヘッダー=1行目）
         $params = [
             'sheet_id' => valueAt($row, $columnMap['sheet_id']),
             'serial_no' => normalizeInt(valueAt($row, $columnMap['serial_no'])),
@@ -406,24 +420,28 @@ try {
             'gender' => valueAt($row, $columnMap['gender']),
         ];
 
-        $stmt->execute($params);
+        try {
+            $stmt->execute($params);
+        } catch (Throwable $rowError) {
+            throw new RuntimeException(
+                '行の登録に失敗しました。sheet_row=' . $rowNumber
+                . ' sheet_id=' . (string) ($params['sheet_id'] ?? '')
+                . ' reason=' . $rowError->getMessage(),
+                0,
+                $rowError
+            );
+        }
         $inserted++;
     }
 
     $pdo->commit();
 
-    echo 'Import completed. inserted_rows=' . $inserted . PHP_EOL;
+    logMessage('Import completed. inserted_rows=' . $inserted);
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
 
-    $errorMessage = '[ERROR] ' . $e->getMessage() . PHP_EOL;
-
-    if (defined('STDERR')) {
-        fwrite(STDERR, $errorMessage);
-    } else {
-        error_log(trim($errorMessage));
-    }
+    logMessage('[ERROR] ' . $e->getMessage(), true);
     exit(1);
 }
