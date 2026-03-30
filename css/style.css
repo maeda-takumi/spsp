@@ -29,7 +29,7 @@ body {
   z-index: 1;
   max-width: 1680px;
   /* max-width: 1240px; */
-  margin: 36px auto;
+  margin: 20px auto;
   padding: 0 20px 36px;
 }
 
@@ -58,6 +58,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+    margin-left: auto;
 }
 
 .import-completed-at {
