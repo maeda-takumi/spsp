@@ -477,12 +477,13 @@ try {
 
     $inserted = 0;
     $updated = 0;
-    foreach (array_slice($values, 1) as $row) {
+    $skippedEmptySheetId = 0;
+    foreach (array_slice($values, 1) as $index => $row) {
         if (count(array_filter($row, static fn($v) => trim((string) $v) !== '')) === 0) {
             continue;
         }
 
-        $rowNumber = $inserted + 2; // スプレッドシート上の実行行番号（ヘッダー=1行目）
+        $rowNumber = $index + 2; // スプレッドシート上の実行行番号（ヘッダー=1行目）
         $params = [
             'sheet_id' => valueAt($row, $columnMap['sheet_id']),
             'serial_no' => normalizeInt(valueAt($row, $columnMap['serial_no'])),
@@ -516,7 +517,8 @@ try {
         ];
 
         if (($params['sheet_id'] ?? null) === null || $params['sheet_id'] === '') {
-            throw new RuntimeException('sheet_id が空の行は登録できません。sheet_row=' . $rowNumber);
+            $skippedEmptySheetId++;
+            continue;
         }
         try {
             $updateStmt->execute($params);
@@ -541,7 +543,7 @@ try {
     $pdo->commit();
 
     $importedCount = (int) $pdo->query('SELECT COUNT(*) FROM ' . TARGET_TABLE)->fetchColumn();
-    $completedMessage = 'Import completed. inserted_rows=' . $inserted . ' updated_rows=' . $updated . ' db_rows=' . $importedCount;
+    $completedMessage = 'Import completed. inserted_rows=' . $inserted . ' updated_rows=' . $updated . ' skipped_empty_sheet_id_rows=' . $skippedEmptySheetId . ' db_rows=' . $importedCount;
     respondAndExit($completedMessage, 200);
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
