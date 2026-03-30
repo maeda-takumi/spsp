@@ -47,8 +47,12 @@
           method: 'GET',
           cache: 'no-store',
         });
+        const responseText = await response.text();
         if (!response.ok) {
-          throw new Error(`status=${response.status}`);
+          throw new Error(`status=${response.status} body=${responseText}`);
+        }
+        if (!responseText.includes('Import completed.')) {
+          throw new Error(`unexpected response=${responseText}`);
         }
         const completedAt = formatImportedAt(new Date());
         if (importCompletedAtNode) {

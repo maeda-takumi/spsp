@@ -100,6 +100,10 @@ arsort($entryPointSummary);
 $topEntryPoint = array_key_first($entryPointSummary) ?? '未設定';
 $topEntryPointCount = $entryPointSummary[$topEntryPoint] ?? 0;
 
+$importCompletedAt = trim((string) ($_GET['import_completed_at'] ?? ''));
+if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $importCompletedAt)) {
+    $importCompletedAt = '';
+}
 $pageTitle = '顧客セールスレコード一覧';
 require 'header.php';
 ?>
