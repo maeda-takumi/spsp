@@ -427,6 +427,38 @@ INSERT INTO customer_sales_records (
 )
 SQL;
 
+$updateSql = <<<SQL
+UPDATE customer_sales_records SET
+    serial_no = :serial_no,
+    sales_year_month = :sales_year_month,
+    payment_year_month = :payment_year_month,
+    full_name = :full_name,
+    system_name = :system_name,
+    entry_point = :entry_point,
+    status = :status,
+    line_name = :line_name,
+    phone_number = :phone_number,
+    email = :email,
+    sales_date = :sales_date,
+    payment_date = :payment_date,
+    expected_payment_amount = :expected_payment_amount,
+    payment_amount = :payment_amount,
+    payment_installment_no = :payment_installment_no,
+    login_id = :login_id,
+    payment_destination = :payment_destination,
+    video_staff = :video_staff,
+    sales_staff = :sales_staff,
+    acquisition_channel = :acquisition_channel,
+    age = :age,
+    system_delivery_status = :system_delivery_status,
+    notes = :notes,
+    payment_week = :payment_week,
+    data1 = :data1,
+    data2 = :data2,
+    line_registered_date = :line_registered_date,
+    gender = :gender
+WHERE sheet_id = :sheet_id
+SQL;
 try {
     logMessage('Import started. table=' . TARGET_TABLE . ' sheet=' . SHEET_NAME);
     $accessToken = fetchAccessTokenFromServiceAccount(SERVICE_ACCOUNT_FILE);
@@ -438,14 +470,13 @@ try {
     }
 
     $pdo = buildPdo();
-    $stmt = $pdo->prepare($insertSql);
+    $insertStmt = $pdo->prepare($insertSql);
+    $updateStmt = $pdo->prepare($updateSql);
 
     $pdo->beginTransaction();
-    // TRUNCATE は外部キー参照中テーブルで実行できないため、
-    // ON DELETE CASCADE を活かして親テーブルを DELETE で全削除する。
-    $pdo->exec('DELETE FROM ' . TARGET_TABLE);
 
     $inserted = 0;
+    $updated = 0;
     foreach (array_slice($values, 1) as $row) {
         if (count(array_filter($row, static fn($v) => trim((string) $v) !== '')) === 0) {
             continue;
@@ -484,8 +515,18 @@ try {
             'gender' => valueAt($row, $columnMap['gender']),
         ];
 
+        if (($params['sheet_id'] ?? null) === null || $params['sheet_id'] === '') {
+            throw new RuntimeException('sheet_id が空の行は登録できません。sheet_row=' . $rowNumber);
+        }
         try {
-            $stmt->execute($params);
+            $updateStmt->execute($params);
+            if ($updateStmt->rowCount() > 0) {
+                $updated++;
+                continue;
+            }
+
+            $insertStmt->execute($params);
+            $inserted++;
         } catch (Throwable $rowError) {
             throw new RuntimeException(
                 '行の登録に失敗しました。sheet_row=' . $rowNumber
@@ -495,13 +536,12 @@ try {
                 $rowError
             );
         }
-        $inserted++;
     }
 
     $pdo->commit();
 
     $importedCount = (int) $pdo->query('SELECT COUNT(*) FROM ' . TARGET_TABLE)->fetchColumn();
-    $completedMessage = 'Import completed. inserted_rows=' . $inserted . ' db_rows=' . $importedCount;
+    $completedMessage = 'Import completed. inserted_rows=' . $inserted . ' updated_rows=' . $updated . ' db_rows=' . $importedCount;
     respondAndExit($completedMessage, 200);
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
