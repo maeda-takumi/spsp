@@ -223,7 +223,7 @@ function supportInterviewMarkCompleted(string $spreadsheetId, string $sheetName,
                 'range' => $range,
                 'majorDimension' => 'ROWS',
                 'values' => [
-                    [date('Y/m/d'), 'TRUE'],
+                    [date('Y/m/d H:i:s'), 'TRUE'],
                 ],
             ],
         ],
@@ -246,7 +246,7 @@ function supportInterviewMarkMailCompleted(string $spreadsheetId, string $sheetN
                 'range' => $range,
                 'majorDimension' => 'ROWS',
                 'values' => [
-                    [date('Y/m/d'), 'TRUE'],
+                    [date('Y/m/d H:i:s'), 'TRUE'],
                 ],
             ],
         ],
