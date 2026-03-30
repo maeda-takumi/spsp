@@ -343,6 +343,17 @@ body {
   gap: 14px;
 }
 
+.detail-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.detail-page-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
 .detail-columns {
   display: grid;
   grid-template-columns: minmax(360px, 1.05fr) minmax(360px, 1fr);

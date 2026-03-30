@@ -415,14 +415,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($memoInput === '') {
             $memoError = 'メモを入力してください。';
         } else {
-            $saveMemoStmt = $pdo->prepare(
-                'INSERT INTO customer_memo (sheet_id, memo)
-                 VALUES (:sheet_id, :memo)
-                 ON DUPLICATE KEY UPDATE memo = VALUES(memo)'
-            );
-            $saveMemoStmt->bindValue(':sheet_id', $sheetIdForMemo, PDO::PARAM_INT);
-            $saveMemoStmt->bindValue(':memo', $memoInput);
-            $saveMemoStmt->execute();
+            $memoExistsStmt = $pdo->prepare('SELECT 1 FROM customer_memo WHERE sheet_id = :sheet_id LIMIT 1');
+            $memoExistsStmt->bindValue(':sheet_id', $sheetIdForMemo, PDO::PARAM_INT);
+            $memoExistsStmt->execute();
+            $memoExists = (bool) $memoExistsStmt->fetchColumn();
+
+            if ($memoExists) {
+                $updateMemoStmt = $pdo->prepare('UPDATE customer_memo SET memo = :memo WHERE sheet_id = :sheet_id');
+                $updateMemoStmt->bindValue(':sheet_id', $sheetIdForMemo, PDO::PARAM_INT);
+                $updateMemoStmt->bindValue(':memo', $memoInput);
+                $updateMemoStmt->execute();
+            } else {
+                $insertMemoStmt = $pdo->prepare('INSERT INTO customer_memo (sheet_id, memo) VALUES (:sheet_id, :memo)');
+                $insertMemoStmt->bindValue(':sheet_id', $sheetIdForMemo, PDO::PARAM_INT);
+                $insertMemoStmt->bindValue(':memo', $memoInput);
+                $insertMemoStmt->execute();
+            }
             header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&memo_saved=1&refresh=' . time() . '#customer-memo');
             exit;
         }
@@ -499,17 +507,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $attachmentUploadRows = [];
         if (is_array($mailAttachments) && is_array($mailAttachments['name'] ?? null)) {
-            $allowedAttachmentMimes = [
-                'image/jpeg',
-                'image/png',
-                'image/gif',
-                'image/webp',
-                'application/pdf',
-                'text/plain',
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            ];
             $maxAttachmentBytes = 20 * 1024 * 1024;
             $uploadCount = count($mailAttachments['name']);
             for ($i = 0; $i < $uploadCount; $i++) {
@@ -525,7 +522,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $originalName = trim((string) ($mailAttachments['name'][$i] ?? ''));
                 $tmpName = (string) ($mailAttachments['tmp_name'][$i] ?? '');
                 $size = (int) ($mailAttachments['size'][$i] ?? 0);
-                $mimeType = (string) ($mailAttachments['type'][$i] ?? '');
 
                 if ($originalName === '' || $tmpName === '') {
                     $errors[] = '添付ファイルの情報が不正です。';
@@ -535,11 +531,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $errors[] = sprintf('添付ファイル「%s」は20MB以下にしてください。', $originalName);
                     break;
                 }
-                if ($mimeType !== '' && !in_array($mimeType, $allowedAttachmentMimes, true)) {
-                    $errors[] = sprintf('添付ファイル「%s」は対応していない形式です。', $originalName);
-                    break;
-                }
-
                 $extension = strtolower((string) pathinfo($originalName, PATHINFO_EXTENSION));
                 $baseName = pathinfo($originalName, PATHINFO_FILENAME);
                 $sanitizedBaseName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $baseName) ?: 'file';
@@ -829,6 +820,12 @@ require 'header.php';
   </aside>
 
   <section class="main-panel detail-main-panel">
+    <header class="detail-page-header">
+      <h2>顧客詳細</h2>
+      <button type="button" class="btn btn-icon" data-run-import-sheet aria-label="シートをDBに取り込み">
+        <img src="img/db.png" alt="" loading="lazy">
+      </button>
+    </header>
     <div class="detail-columns">
       <section id="customer-info" class="panel content-panel detail-panel">
         <h2>顧客情報</h2>

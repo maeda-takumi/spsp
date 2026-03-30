@@ -28,6 +28,26 @@
 
     mailTemplate.addEventListener('change', applyTemplate);
   }
+  const importSheetButton = document.querySelector('[data-run-import-sheet]');
+  if (importSheetButton) {
+    importSheetButton.addEventListener('click', async () => {
+      importSheetButton.disabled = true;
+      try {
+        const response = await window.fetch('import_sheet_to_db.php', {
+          method: 'GET',
+          cache: 'no-store',
+        });
+        if (!response.ok) {
+          throw new Error(`status=${response.status}`);
+        }
+        window.location.reload();
+      } catch (error) {
+        window.alert('DB取り込みに失敗しました。時間をおいて再度お試しください。');
+        importSheetButton.disabled = false;
+      }
+    });
+  }
+
   const openButtons = document.querySelectorAll('[data-open-modal]');
   if (openButtons.length === 0) {
     return;
