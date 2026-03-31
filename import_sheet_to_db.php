@@ -619,6 +619,7 @@ try {
         . ' target_deleted_missing_rows=' . $deletedFromTarget
         . ' skipped_empty_sheet_id_rows=' . $skippedEmptySheetId
         . ' db_rows=' . $importedCount;
+    respondAndExit($completedMessage, 200);
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
         $pdo->rollBack();
