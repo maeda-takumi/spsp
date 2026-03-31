@@ -73,6 +73,7 @@ function renderRefundGuaranteeSection(string $sheetId, array $statuses): void
         <div class="refund-guarantee-list" data-refund-guarantee-list>
           <?php foreach ($questions as $key => $label): ?>
             <label class="refund-guarantee-item">
+              <span><?= h($label); ?></span>
               <input
                 type="checkbox"
                 data-refund-guarantee-checkbox
@@ -80,7 +81,6 @@ function renderRefundGuaranteeSection(string $sheetId, array $statuses): void
                 data-sheet-id="<?= h($sheetId); ?>"
                 <?= !empty($statuses[$key]) ? 'checked' : ''; ?>
               >
-              <span><?= h($label); ?></span>
             </label>
           <?php endforeach; ?>
         </div>

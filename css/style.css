@@ -1060,6 +1060,9 @@ audio {
 
 .refund-guarantee-item {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   align-items: flex-start;
   gap: 10px;
   padding: 10px 12px;
@@ -1068,6 +1071,11 @@ audio {
   background: #fff;
 }
 
+.refund-guarantee-item span {
+  flex: 1;
+}
 .refund-guarantee-item input[type="checkbox"] {
-  margin-top: 2px;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
 }
