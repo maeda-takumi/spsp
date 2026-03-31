@@ -145,16 +145,55 @@
   if (sectionToggleButtons.length > 0) {
     const OPEN_ICON_SRC = 'img/open.png';
     const CLOSE_ICON_SRC = 'img/close.png';
+    const ICON_ANIMATION_MS = 180;
+    const BODY_ANIMATION_MS = 320;
 
-    const setToggleState = (button, expanded) => {
+    const setToggleState = (button, expanded, animate = true) => {
       const icon = button.querySelector('[data-toggle-icon]');
       button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
       button.setAttribute('aria-label', expanded ? '閉じる' : '開ける');
       if (icon) {
-        icon.setAttribute('src', expanded ? CLOSE_ICON_SRC : OPEN_ICON_SRC);
+        if (!animate) {
+          icon.setAttribute('src', expanded ? CLOSE_ICON_SRC : OPEN_ICON_SRC);
+          return;
+        }
+        button.classList.add('is-icon-changing');
+        window.setTimeout(() => {
+          icon.setAttribute('src', expanded ? CLOSE_ICON_SRC : OPEN_ICON_SRC);
+          button.classList.remove('is-icon-changing');
+        }, ICON_ANIMATION_MS);
       }
     };
 
+    const animateSection = (button, target, willExpand) => {
+      const panel = button.closest('.detail-panel');
+      if (willExpand) {
+        target.hidden = false;
+        target.classList.remove('is-collapsed');
+        target.style.maxHeight = '0px';
+        void target.offsetHeight;
+        target.style.maxHeight = `${target.scrollHeight}px`;
+        if (panel) {
+          panel.classList.remove('is-collapsed');
+        }
+        window.setTimeout(() => {
+          target.style.maxHeight = '';
+        }, BODY_ANIMATION_MS);
+        return;
+      }
+
+      target.style.maxHeight = `${target.scrollHeight}px`;
+      void target.offsetHeight;
+      target.classList.add('is-collapsed');
+      target.style.maxHeight = '0px';
+      if (panel) {
+        panel.classList.add('is-collapsed');
+      }
+      window.setTimeout(() => {
+        target.hidden = true;
+        target.style.maxHeight = '';
+      }, BODY_ANIMATION_MS);
+    };
     sectionToggleButtons.forEach((button) => {
       const targetId = button.getAttribute('data-target-id');
       if (!targetId) {
@@ -164,11 +203,19 @@
       if (!target) {
         return;
       }
-      setToggleState(button, !target.hidden);
+      const isExpanded = !target.hidden;
+      setToggleState(button, isExpanded, false);
+      if (!isExpanded) {
+        target.classList.add('is-collapsed');
+        const panel = button.closest('.detail-panel');
+        if (panel) {
+          panel.classList.add('is-collapsed');
+        }
+      }
 
       button.addEventListener('click', () => {
         const willExpand = target.hidden;
-        target.hidden = !willExpand;
+        animateSection(button, target, willExpand);
         setToggleState(button, willExpand);
       });
     });

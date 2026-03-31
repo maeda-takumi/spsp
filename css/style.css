@@ -521,13 +521,15 @@ body {
   align-items: start;
 }
 .detail-right-stack {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
   align-self: stretch;
 }
 .detail-panel {
   padding: 18px;
-  min-height: 100%;
+  /* min-height: 100%; */
+  transition: padding 0.28s ease, box-shadow 0.28s ease;
 }
 
 .detail-panel h2 {
@@ -597,6 +599,7 @@ body {
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 10px;
+  transition: margin-bottom 0.28s ease;
 }
 
 .section-head-actions {
@@ -767,6 +770,35 @@ audio {
   height: 20px;
 }
 
+.section-toggle-button [data-toggle-icon] {
+  transition: transform 0.28s ease, opacity 0.2s ease;
+}
+
+.section-toggle-button.is-icon-changing [data-toggle-icon] {
+  opacity: 0.35;
+  transform: scale(0.82) rotate(-90deg);
+}
+
+.collapsible-body {
+  overflow: hidden;
+  opacity: 1;
+  transition: max-height 0.32s ease, opacity 0.22s ease, margin-top 0.32s ease;
+}
+
+.collapsible-body.is-collapsed {
+  opacity: 0;
+  margin-top: 0;
+}
+
+.detail-panel.is-collapsed {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  min-height: auto;
+}
+
+.detail-panel.is-collapsed .section-head {
+  margin-bottom: 0;
+}
 .mail-body-textarea {
   min-height: 380px;
 }

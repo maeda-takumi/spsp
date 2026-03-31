@@ -921,7 +921,7 @@ $customerFields = [
     'updated_at' => '更新日時',
 ];
 
-$pageTitle = '顧客詳細';
+$pageTitle = 'SUPSUP-NEO 顧客詳細';
 $showImportButton = true;
 $importCompletedAt = trim((string) ($_GET['import_completed_at'] ?? ''));
 if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $importCompletedAt)) {

@@ -123,7 +123,7 @@ $importCompletedAt = trim((string) ($_GET['import_completed_at'] ?? ''));
 if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $importCompletedAt)) {
     $importCompletedAt = '';
 }
-$pageTitle = '顧客セールスレコード一覧';
+$pageTitle = 'SUP-SUP NEO 顧客一覧';
 require 'header.php';
 ?>
 <div class="glass-board" aria-hidden="true" style="display:none;"></div>
