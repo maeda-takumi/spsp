@@ -599,6 +599,19 @@ body {
   margin-bottom: 10px;
 }
 
+.section-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-action-row,
+.template-action-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
 .notice {
   margin: 0 0 12px;
   color: #1d4ed8;

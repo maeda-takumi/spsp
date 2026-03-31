@@ -141,6 +141,39 @@
       });
     });
   }
+  const sectionToggleButtons = document.querySelectorAll('[data-section-toggle]');
+  if (sectionToggleButtons.length > 0) {
+    const OPEN_ICON_SRC = 'img/open.png';
+    const CLOSE_ICON_SRC = 'img/close.png';
+
+    const setToggleState = (button, expanded) => {
+      const icon = button.querySelector('[data-toggle-icon]');
+      button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      button.setAttribute('aria-label', expanded ? '閉じる' : '開ける');
+      if (icon) {
+        icon.setAttribute('src', expanded ? CLOSE_ICON_SRC : OPEN_ICON_SRC);
+      }
+    };
+
+    sectionToggleButtons.forEach((button) => {
+      const targetId = button.getAttribute('data-target-id');
+      if (!targetId) {
+        return;
+      }
+      const target = document.getElementById(targetId);
+      if (!target) {
+        return;
+      }
+      setToggleState(button, !target.hidden);
+
+      button.addEventListener('click', () => {
+        const willExpand = target.hidden;
+        target.hidden = !willExpand;
+        setToggleState(button, willExpand);
+      });
+    });
+  }
+
   const openButtons = document.querySelectorAll('[data-open-modal]');
   if (openButtons.length === 0) {
     return;
