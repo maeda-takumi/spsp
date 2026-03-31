@@ -1052,3 +1052,22 @@ audio {
   }
 
 }
+.refund-guarantee-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.refund-guarantee-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #d2e1fe;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.refund-guarantee-item input[type="checkbox"] {
+  margin-top: 2px;
+}

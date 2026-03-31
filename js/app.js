@@ -411,6 +411,47 @@
 
     audioInput.addEventListener('change', updateFileMeta);
   }
+  const refundGuaranteeCheckboxes = document.querySelectorAll('[data-refund-guarantee-checkbox]');
+  if (refundGuaranteeCheckboxes.length > 0) {
+    refundGuaranteeCheckboxes.forEach((checkbox) => {
+      checkbox.addEventListener('change', async () => {
+        const questionKey = checkbox.getAttribute('data-question-key') || '';
+        const sheetId = checkbox.getAttribute('data-sheet-id') || '';
+        if (!questionKey || !sheetId) {
+          checkbox.checked = !checkbox.checked;
+          window.alert('保存対象の情報が不足しています。');
+          return;
+        }
+
+        const nextChecked = checkbox.checked;
+        checkbox.disabled = true;
+
+        try {
+          const response = await window.fetch('refund_guarantee_toggle.php', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              sheet_id: sheetId,
+              question_key: questionKey,
+              is_checked: nextChecked ? 1 : 0,
+            }),
+          });
+
+          const payload = await response.json();
+          if (!response.ok || !payload.ok) {
+            throw new Error(payload.message || '保存に失敗しました。');
+          }
+        } catch (error) {
+          checkbox.checked = !nextChecked;
+          window.alert('返金保証条件の保存に失敗しました。');
+        } finally {
+          checkbox.disabled = false;
+        }
+      });
+    });
+  }
   const emailForm = document.querySelector('[data-email-form]');
   if (emailForm) {
     const templateSelect = emailForm.querySelector('[data-template-select]');

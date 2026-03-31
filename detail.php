@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once 'config.php';
 require_once 'chatwork_notifier.php';
 require_once 'support_interview_sheet_appender.php';
+require_once 'refund_guarantee_section.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
@@ -294,6 +295,8 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS email_templates (
     PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
 
+ensureRefundGuaranteeTable($pdo);
+
 $pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_drafts (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     customer_sales_record_id VARCHAR(100) NOT NULL,
@@ -434,6 +437,7 @@ $memoStmt->execute();
 $memoRow = $memoStmt->fetch();
 $memoValue = (string) ($memoRow['memo'] ?? '');
 $memoError = '';
+$refundGuaranteeStatuses = fetchRefundGuaranteeStatuses($pdo, $recordSheetId);
 
 $errors = [];
 $currentAction = (string) ($_POST['action'] ?? '');
@@ -1170,6 +1174,7 @@ require 'header.php';
             <?php endif; ?>
           </div>
         </section>
+        <?php renderRefundGuaranteeSection($recordSheetId, $refundGuaranteeStatuses); ?>
       </div>
     </div>
   </section>

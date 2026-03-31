@@ -181,3 +181,16 @@ CREATE TABLE customer_memo (
 -- SET w.sheet_id = r.sheet_id;
 
 CREATE TABLE IF NOT EXISTS customer_sales_records_staging LIKE customer_sales_records;
+CREATE TABLE `customer_refund_guarantee_checks` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `sheet_id` varchar(100) NOT NULL,
+  `question_key` varchar(100) NOT NULL,
+  `question_label` varchar(255) NOT NULL,
+  `is_checked` tinyint(1) NOT NULL DEFAULT 0,
+  `checked_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_sheet_question` (`sheet_id`,`question_key`),
+  KEY `idx_sheet_id` (`sheet_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
