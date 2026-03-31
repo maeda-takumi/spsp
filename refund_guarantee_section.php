@@ -5,10 +5,12 @@ declare(strict_types=1);
 function refundGuaranteeQuestions(): array
 {
     return [
-        'understood_term' => '返金保証の適用期間を案内し、理解を得られた',
-        'understood_scope' => '返金対象外となる条件を説明した',
-        'understood_procedure' => '返金申請の手順（連絡先・期限）を説明した',
-        'customer_agreed' => 'お客様が返金保証条件に同意した',
+        'line_registered_within_48h' => '購入から48時間以内に甲の運営するLINEサポートへ登録完了していること',
+        'line_consulted_twice_or_more' => 'LINEサポートで最低2回以上の相談履歴があること（スタンプのみやスクールの導入説明等はNG）',
+        'activity_reports_after_3_months' => 'スクール開始から3か月を終えて、副業実践の活動報告を最低3回報告すること（例：出品・DM・制作などの証拠）',
+        'all_assignments_submitted' => '教材の中から、すべて課題（実践課題まで）を提出をしていること',
+        'proof_of_zero_income' => '副業収益が0円であることを「実績キャプチャ」や「スクリーンショット」で提出すること',
+        'submitted_cancellation_form' => '返金申請電話フォームで解約の申請を出すこと（本人に限る）',
     ];
 }
 
