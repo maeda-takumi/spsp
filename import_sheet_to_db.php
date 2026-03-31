@@ -17,8 +17,10 @@ const SPREADSHEET_ID = '1HGz1Jq-S3UWKqtbDtPnRmaDiK5LRUWYifBtBquyVFhU';
 const SHEET_NAME = '投資顧客管理';
 const SERVICE_ACCOUNT_FILE = __DIR__ . '/service_account.json';
 const TARGET_TABLE = 'customer_sales_records';
+const STAGING_TABLE = 'customer_sales_records_staging';
 const GOOGLE_SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 
+const DELETE_MISSING_RECORDS = false;
 function base64UrlEncode(string $data): string
 {
     return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
@@ -364,7 +366,7 @@ $columnMap = [
 ];
 
 $insertSql = <<<SQL
-INSERT INTO customer_sales_records (
+INSERT INTO %s (
     sheet_id,
     serial_no,
     sales_year_month,
@@ -427,6 +429,99 @@ INSERT INTO customer_sales_records (
 )
 SQL;
 
+$upsertSql = <<<SQL
+INSERT INTO %s (
+    sheet_id,
+    serial_no,
+    sales_year_month,
+    payment_year_month,
+    full_name,
+    system_name,
+    entry_point,
+    status,
+    line_name,
+    phone_number,
+    email,
+    sales_date,
+    payment_date,
+    expected_payment_amount,
+    payment_amount,
+    payment_installment_no,
+    login_id,
+    payment_destination,
+    video_staff,
+    sales_staff,
+    acquisition_channel,
+    age,
+    system_delivery_status,
+    notes,
+    payment_week,
+    data1,
+    data2,
+    line_registered_date,
+    gender
+)
+SELECT
+    sheet_id,
+    serial_no,
+    sales_year_month,
+    payment_year_month,
+    full_name,
+    system_name,
+    entry_point,
+    status,
+    line_name,
+    phone_number,
+    email,
+    sales_date,
+    payment_date,
+    expected_payment_amount,
+    payment_amount,
+    payment_installment_no,
+    login_id,
+    payment_destination,
+    video_staff,
+    sales_staff,
+    acquisition_channel,
+    age,
+    system_delivery_status,
+    notes,
+    payment_week,
+    data1,
+    data2,
+    line_registered_date,
+    gender
+FROM %s
+ON DUPLICATE KEY UPDATE
+    serial_no = VALUES(serial_no),
+    sales_year_month = VALUES(sales_year_month),
+    payment_year_month = VALUES(payment_year_month),
+    full_name = VALUES(full_name),
+    system_name = VALUES(system_name),
+    entry_point = VALUES(entry_point),
+    status = VALUES(status),
+    line_name = VALUES(line_name),
+    phone_number = VALUES(phone_number),
+    email = VALUES(email),
+    sales_date = VALUES(sales_date),
+    payment_date = VALUES(payment_date),
+    expected_payment_amount = VALUES(expected_payment_amount),
+    payment_amount = VALUES(payment_amount),
+    payment_installment_no = VALUES(payment_installment_no),
+    login_id = VALUES(login_id),
+    payment_destination = VALUES(payment_destination),
+    video_staff = VALUES(video_staff),
+    sales_staff = VALUES(sales_staff),
+    acquisition_channel = VALUES(acquisition_channel),
+    age = VALUES(age),
+    system_delivery_status = VALUES(system_delivery_status),
+    notes = VALUES(notes),
+    payment_week = VALUES(payment_week),
+    data1 = VALUES(data1),
+    data2 = VALUES(data2),
+    line_registered_date = VALUES(line_registered_date),
+    gender = VALUES(gender)
+SQL;
 try {
     logMessage('Import started. table=' . TARGET_TABLE . ' sheet=' . SHEET_NAME);
     $accessToken = fetchAccessTokenFromServiceAccount(SERVICE_ACCOUNT_FILE);
@@ -438,12 +533,13 @@ try {
     }
 
     $pdo = buildPdo();
-    $insertStmt = $pdo->prepare($insertSql);
+    $pdo->exec('CREATE TABLE IF NOT EXISTS ' . STAGING_TABLE . ' LIKE ' . TARGET_TABLE);
+    $stagingInsertStmt = $pdo->prepare(sprintf($insertSql, STAGING_TABLE));
 
     $pdo->beginTransaction();
-    $deleted = (int) $pdo->exec('DELETE FROM ' . TARGET_TABLE);
+    $deletedFromStaging = (int) $pdo->exec('DELETE FROM ' . STAGING_TABLE);
 
-    $inserted = 0;
+    $stagingInserted = 0;
     $skippedEmptySheetId = 0;
     foreach (array_slice($values, 1) as $index => $row) {
         if (count(array_filter($row, static fn($v) => trim((string) $v) !== '')) === 0) {
@@ -489,8 +585,8 @@ try {
         }
         try {
 
-            $insertStmt->execute($params);
-            $inserted++;
+            $stagingInsertStmt->execute($params);
+            $stagingInserted++;
         } catch (Throwable $rowError) {
             throw new RuntimeException(
                 '行の登録に失敗しました。sheet_row=' . $rowNumber
@@ -502,11 +598,27 @@ try {
         }
     }
 
+    $upserted = (int) $pdo->exec(sprintf($upsertSql, TARGET_TABLE, STAGING_TABLE));
+    $deletedFromTarget = 0;
+    if (DELETE_MISSING_RECORDS) {
+        $deletedFromTarget = (int) $pdo->exec(
+            'DELETE target
+             FROM ' . TARGET_TABLE . ' AS target
+             LEFT JOIN ' . STAGING_TABLE . ' AS staging
+                ON staging.sheet_id = target.sheet_id
+             WHERE staging.sheet_id IS NULL'
+        );
+    }
+
     $pdo->commit();
 
     $importedCount = (int) $pdo->query('SELECT COUNT(*) FROM ' . TARGET_TABLE)->fetchColumn();
-    $completedMessage = 'Import completed. deleted_rows=' . $deleted . ' inserted_rows=' . $inserted . ' skipped_empty_sheet_id_rows=' . $skippedEmptySheetId . ' db_rows=' . $importedCount;
-    respondAndExit($completedMessage, 200);
+    $completedMessage = 'Import completed. staging_deleted_rows=' . $deletedFromStaging
+        . ' staging_inserted_rows=' . $stagingInserted
+        . ' upsert_affected_rows=' . $upserted
+        . ' target_deleted_missing_rows=' . $deletedFromTarget
+        . ' skipped_empty_sheet_id_rows=' . $skippedEmptySheetId
+        . ' db_rows=' . $importedCount;
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
         $pdo->rollBack();

@@ -179,3 +179,5 @@ CREATE TABLE customer_memo (
 -- UPDATE customer_sales_record_writings w
 -- JOIN customer_sales_records r ON w.sheet_id = CAST(r.id AS CHAR)
 -- SET w.sheet_id = r.sheet_id;
+
+CREATE TABLE IF NOT EXISTS customer_sales_records_staging LIKE customer_sales_records;
