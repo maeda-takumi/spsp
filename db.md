@@ -194,3 +194,32 @@ CREATE TABLE `customer_refund_guarantee_checks` (
   UNIQUE KEY `uniq_sheet_question` (`sheet_id`,`question_key`),
   KEY `idx_sheet_id` (`sheet_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS customer_tags (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    color CHAR(7) NOT NULL DEFAULT '#3b82f6',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_customer_tags_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS customer_sales_record_tags (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    sheet_id VARCHAR(100) NOT NULL,
+    tag_id BIGINT UNSIGNED NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_customer_sales_record_tags_sheet_tag (sheet_id, tag_id),
+    KEY idx_customer_sales_record_tags_tag_id (tag_id),
+    CONSTRAINT fk_customer_sales_record_tags_sheet_id
+        FOREIGN KEY (sheet_id)
+        REFERENCES customer_sales_records (sheet_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_customer_sales_record_tags_tag_id
+        FOREIGN KEY (tag_id)
+        REFERENCES customer_tags (id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -6,6 +6,7 @@ require_once 'config.php';
 require_once 'chatwork_notifier.php';
 require_once 'support_interview_sheet_appender.php';
 require_once 'refund_guarantee_section.php';
+require_once 'customer_tagging.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
@@ -294,6 +295,7 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS email_templates (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+ensureCustomerTagTables($pdo);
 
 ensureRefundGuaranteeTable($pdo);
 
@@ -437,6 +439,8 @@ $memoStmt->execute();
 $memoRow = $memoStmt->fetch();
 $memoValue = (string) ($memoRow['memo'] ?? '');
 $memoError = '';
+$tagMaster = fetchCustomerTagMaster($pdo);
+$assignedTags = fetchCustomerTagsBySheetId($pdo, $sheetId);
 $refundGuaranteeStatuses = fetchRefundGuaranteeStatuses($pdo, $recordSheetId);
 
 $errors = [];
@@ -945,6 +949,34 @@ require 'header.php';
       <!-- <a href="#customer-info">顧客情報</a>
       <a href="#writing-list">Writing一覧</a> -->
     </nav>
+    <section class="memo-panel">
+      <div class="memo-tagging" data-tagging-root data-sheet-id="<?= h($sheetId); ?>">
+        <div class="memo-tagging-controls">
+          <select data-tag-select>
+            <option value="">タグを選択</option>
+            <?php foreach ($tagMaster as $tag): ?>
+              <option value="<?= h((string) ($tag['id'] ?? '')); ?>"><?= h((string) ($tag['name'] ?? '')); ?></option>
+            <?php endforeach; ?>
+          </select>
+          <div class="button_frame">
+            <button type="button" class="btn btn-ghost" data-open-modal="tag-manager-modal">タグ管理</button>
+            <button type="button" class="btn btn-primary" data-tag-add>追加</button>
+          </div>
+        </div>
+        <div class="tag-badges" data-tag-badges>
+          <?php if ($assignedTags === []): ?>
+            <p class="tagging-empty">タグは未設定です。</p>
+          <?php else: ?>
+            <?php foreach ($assignedTags as $tag): ?>
+              <span class="tag-badge" style="--tag-color:<?= h((string) ($tag['color'] ?? '#3b82f6')); ?>">
+                <span class="tag-badge-label"><?= h((string) ($tag['name'] ?? 'タグ')); ?></span>
+                <button type="button" class="tag-badge-remove" data-remove-tag-id="<?= h((string) ($tag['id'] ?? '')); ?>">×</button>
+              </span>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
+      </div>  
+    </section>              
     <section id="customer-memo" class="memo-panel">
       <h2>メモ</h2>
       <?php if (isset($_GET['memo_saved'])): ?>
@@ -1340,4 +1372,40 @@ require 'header.php';
     </form>
   </div>
 </div>
+<div class="modal" id="tag-manager-modal" hidden>
+  <div class="modal-dialog panel content-panel">
+    <div class="section-head">
+      <h3>タグ管理</h3>
+      <button type="button" class="btn btn-ghost" data-close-modal>閉じる</button>
+    </div>
+    <form class="tag-manager-form" data-tag-manager-form>
+      <input type="hidden" value="create_tag" data-tag-manager-action>
+      <input type="hidden" value="" data-tag-manager-tag-id>
+      <div class="field">
+        <label for="tag-manager-name">タグ名</label>
+        <input id="tag-manager-name" type="text" required data-tag-manager-name>
+      </div>
+      <div class="field">
+        <label for="tag-manager-color">カラー</label>
+        <input id="tag-manager-color" type="color" value="#3b82f6" data-tag-manager-color>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" type="submit" data-tag-manager-submit-label>追加</button>
+        <button class="btn btn-ghost" type="button" hidden data-tag-manager-cancel-edit>編集をキャンセル</button>
+      </div>
+    </form>
+    <ul class="tag-manager-list" data-tag-manager-list>
+      <?php foreach ($tagMaster as $tag): ?>
+        <li class="tag-manager-item">
+          <span class="tag-preview" style="--tag-color:<?= h((string) ($tag['color'] ?? '#3b82f6')); ?>"><?= h((string) ($tag['name'] ?? 'タグ')); ?></span>
+          <div class="tag-manager-actions">
+            <button type="button" class="btn btn-ghost" data-tag-edit-id="<?= h((string) ($tag['id'] ?? '')); ?>">編集</button>
+            <button type="button" class="btn btn-ghost btn-danger" data-tag-delete-id="<?= h((string) ($tag['id'] ?? '')); ?>">削除</button>
+          </div>
+        </li>
+      <?php endforeach; ?>
+    </ul>
+  </div>
+</div>
+<script src="js/tagging.js?v=<?= time(); ?>"></script>
 <?php require 'footer.php'; ?>

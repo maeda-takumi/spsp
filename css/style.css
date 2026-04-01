@@ -213,6 +213,104 @@ body {
   margin-bottom: 8px;
   font-size: 0.85rem;
 }
+.button_frame{
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+}
+/* .memo-tagging {
+  margin-bottom: 20px;
+  margin-top: 20px;
+} */
+
+.memo-tagging-controls {
+    display: flex;
+    grid-template-columns: 1fr auto auto;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-direction: column;
+}
+
+.memo-tagging-controls select {
+  width: 100%;
+  border: 1px solid #d2e1fe;
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: #fff;
+}
+
+.tag-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--tag-color) 40%, #ffffff);
+  background: color-mix(in srgb, var(--tag-color) 18%, #ffffff);
+  color: #1f2a44;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+
+.tag-badge-remove {
+  border: 0;
+  background: transparent;
+  color: #24456b;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.tagging-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.tag-manager-form {
+  display: grid;
+  gap: 10px;
+}
+
+.tag-manager-list {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.tag-manager-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #d2e1fe;
+}
+
+.tag-preview {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--tag-color) 40%, #ffffff);
+  background: color-mix(in srgb, var(--tag-color) 18%, #ffffff);
+  padding: 4px 10px;
+  font-size: 0.82rem;
+}
+
+.tag-manager-actions {
+  display: flex;
+  gap: 6px;
+}
 
 .main-panel {
   padding: 24px;
@@ -986,6 +1084,9 @@ audio {
 
   .dashboard-shell--detail .memo-panel {
     margin-top: 14px;
+  }
+  .memo-tagging-controls {
+    grid-template-columns: 1fr;
   }
 }
 
