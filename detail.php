@@ -26,6 +26,16 @@ function db(): PDO
     ]);
 }
 
+function getOptionalQuery(string $key): ?string
+{
+    $value = $_GET[$key] ?? null;
+    if (!is_string($value)) {
+        return null;
+    }
+
+    $value = trim($value);
+    return $value === '' ? null : $value;
+}
 const GOOGLE_OAUTH_TOKEN_FILE =  'download/google_oauth_token.json';
 const GOOGLE_OAUTH_CLIENT_FILE = 'download/google_oauth_client_secret.json';
 const MAIL_SENDER = 'systemsoufu@gmail.com';
@@ -238,6 +248,22 @@ if ($sheetId === '') {
     echo 'sheet_id が指定されていません。';
     exit;
 }
+
+$returnPage = max(1, (int) ($_GET['page'] ?? 1));
+$returnName = getOptionalQuery('name');
+$returnVideoStaff = getOptionalQuery('video_staff');
+$returnSalesStaff = getOptionalQuery('sales_staff');
+$indexBackParams = ['page' => $returnPage];
+if ($returnName !== null) {
+    $indexBackParams['name'] = $returnName;
+}
+if ($returnVideoStaff !== null) {
+    $indexBackParams['video_staff'] = $returnVideoStaff;
+}
+if ($returnSalesStaff !== null) {
+    $indexBackParams['sales_staff'] = $returnSalesStaff;
+}
+$indexBackUrl = 'index.php?' . http_build_query($indexBackParams);
 
 function tableHasColumn(PDO $pdo, string $tableName, string $columnName): bool
 {
@@ -945,7 +971,7 @@ require 'header.php';
     <p><?= h((string) ($record['line_name'] ?? '名称未設定')); ?></p>
 
     <nav class="side-nav" aria-label="メニュー">
-      <a href="index.php">一覧へ戻る</a>
+      <a href="<?= h($indexBackUrl); ?>">一覧へ戻る</a>
       <!-- <a href="#customer-info">顧客情報</a>
       <a href="#writing-list">Writing一覧</a> -->
     </nav>

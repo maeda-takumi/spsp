@@ -123,6 +123,17 @@ $importCompletedAt = trim((string) ($_GET['import_completed_at'] ?? ''));
 if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $importCompletedAt)) {
     $importCompletedAt = '';
 }
+$detailReturnParams = ['page' => $page];
+if ($name !== null) {
+    $detailReturnParams['name'] = $name;
+}
+if ($videoStaff !== null) {
+    $detailReturnParams['video_staff'] = $videoStaff;
+}
+if ($salesStaff !== null) {
+    $detailReturnParams['sales_staff'] = $salesStaff;
+}
+
 $pageTitle = 'SUP-SUP NEO 顧客一覧';
 require 'header.php';
 ?>
@@ -173,7 +184,7 @@ require 'header.php';
         </div>
         <div class="actions">
           <button class="btn btn-primary" type="submit">検索する</button>
-          <a class="btn btn-ghost" href="/index.php">リセット</a>
+          <a class="btn btn-ghost" href="index.php">リセット</a>
         </div>
       </form>
     </section>
@@ -205,7 +216,7 @@ require 'header.php';
               <td data-label="本名"><?= h((string) ($row['full_name'] ?? '')); ?></td>
               <td data-label="演者名"><?= h((string) ($row['video_staff_display'] ?? '')); ?></td>
               <td data-label="セールス名"><?= h((string) ($row['sales_staff'] ?? '')); ?></td>
-              <td data-label="操作"><a class="btn btn-ghost" href="detail.php?sheet_id=<?= rawurlencode((string) ($row['sheet_id'] ?? '')); ?>">詳細</a></td>
+              <td data-label="操作"><a class="btn btn-ghost" href="detail.php?<?= h(http_build_query(array_merge(['sheet_id' => (string) ($row['sheet_id'] ?? '')], $detailReturnParams))); ?>">詳細</a></td>
             </tr>
           <?php endforeach; ?>
           </tbody>
