@@ -1212,7 +1212,6 @@ require 'header.php';
                     <td data-label="ID"><?= h((string) ($writing['id'] ?? '')); ?></td>
                     <td data-label="登録日"><?= h((string) ($writing['updated_at'] ?? '')); ?></td>
                     <td data-label="操作">
-                    <td>
                       <button
                         type="button"
                         class="btn btn-ghost"
