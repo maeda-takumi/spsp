@@ -158,13 +158,11 @@ require 'header.php';
   <aside class="side-panel">
     <!-- <img class="avatar" src="img/neo.png" alt="担当者アイコン" loading="lazy"> -->
     <h1>SUP-SUP NEO</h1>
-    <!-- <p>LINKS</p>
-
+    <p>LINKS</p>
     <nav class="side-nav" aria-label="メニュー">
-      <a href="">DUMMY-LINK</a>
-      <a href="">DUMMY-LINK</a>
-      <a href="">DUMMY-LINK</a>
-    </nav> -->
+      <a href="index.php">顧客一覧</a>
+      <a href="request_management.php">送付依頼一覧</a>
+    </nav>
   </aside>
 
   <section class="main-panel">
