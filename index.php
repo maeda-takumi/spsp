@@ -48,6 +48,8 @@ function tableHasColumn(PDO $pdo, string $tableName, string $columnName): bool
     return (bool) $stmt->fetchColumn();
 }
 $name = getQuery('name');
+$sheetId = getQuery('sheet_id');
+$email = getQuery('email');
 $videoStaff = getQuery('video_staff');
 $salesStaff = getQuery('sales_staff');
 $page = max(1, (int) ($_GET['page'] ?? 1));
@@ -61,6 +63,14 @@ $params = [];
 if ($name !== null) {
     $where[] = '(line_name LIKE :name OR full_name LIKE :name)';
     $params[':name'] = '%' . $name . '%';
+}
+if ($sheetId !== null) {
+    $where[] = 'sheet_id LIKE :sheet_id';
+    $params[':sheet_id'] = '%' . $sheetId . '%';
+}
+if ($email !== null) {
+    $where[] = 'email LIKE :email';
+    $params[':email'] = '%' . $email . '%';
 }
 if ($videoStaff !== null) {
     $where[] = 'video_staff = :video_staff';
@@ -89,7 +99,7 @@ if ($page > $totalPages) {
     $offset = ($page - 1) * $perPage;
 }
 
-$sql = "SELECT sheet_id, entry_point, status, line_name, full_name, {$videoStaffColumn} AS video_staff_display, sales_staff
+$sql = "SELECT sheet_id, entry_point, status, line_name, full_name, email, {$videoStaffColumn} AS video_staff_display, sales_staff
         FROM customer_sales_records
         {$whereSql}
         ORDER BY sheet_id DESC
@@ -127,6 +137,12 @@ $detailReturnParams = ['page' => $page];
 if ($name !== null) {
     $detailReturnParams['name'] = $name;
 }
+if ($sheetId !== null) {
+    $detailReturnParams['sheet_id'] = $sheetId;
+}
+if ($email !== null) {
+    $detailReturnParams['email'] = $email;
+}
 if ($videoStaff !== null) {
     $detailReturnParams['video_staff'] = $videoStaff;
 }
@@ -156,8 +172,16 @@ require 'header.php';
       <form method="get" data-filter-form>
         <div class="filter-grid">
           <div class="field">
+            <label for="sheet_id">シートID検索</label>
+            <input id="sheet_id" type="text" name="sheet_id" value="<?= h($sheetId); ?>" placeholder="例: 35016">
+          </div>
+          <div class="field">
             <label for="name">名前検索（LINE名 / 氏名）</label>
             <input id="name" type="text" name="name" value="<?= h($name); ?>" placeholder="例: 山田">
+          </div>
+          <div class="field">
+            <label for="email">メールアドレス検索</label>
+            <input id="email" type="text" name="email" value="<?= h($email); ?>" placeholder="例: sample@example.com">
           </div>
           <div class="field">
             <label for="video_staff">演者検索</label>
@@ -201,6 +225,7 @@ require 'header.php';
             <th>状態</th>
             <th>LINE名</th>
             <th>本名</th>
+            <th>メールアドレス</th>
             <th>演者名</th>
             <th>セールス名</th>
             <th>操作</th>
@@ -214,6 +239,7 @@ require 'header.php';
               <td data-label="状態"><?= h((string) ($row['status'] ?? '')); ?></td>
               <td data-label="LINE名"><?= h((string) ($row['line_name'] ?? '')); ?></td>
               <td data-label="本名"><?= h((string) ($row['full_name'] ?? '')); ?></td>
+              <td data-label="メールアドレス"><?= h((string) ($row['email'] ?? '')); ?></td>
               <td data-label="演者名"><?= h((string) ($row['video_staff_display'] ?? '')); ?></td>
               <td data-label="セールス名"><?= h((string) ($row['sales_staff'] ?? '')); ?></td>
               <td data-label="操作"><a class="btn btn-ghost" href="detail.php?<?= h(http_build_query(array_merge(['sheet_id' => (string) ($row['sheet_id'] ?? '')], $detailReturnParams))); ?>">詳細</a></td>

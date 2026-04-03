@@ -223,3 +223,13 @@ CREATE TABLE IF NOT EXISTS customer_sales_record_tags (
         ON UPDATE CASCADE
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE request_management (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    sheet_id BIGINT NOT NULL,
+    document_type VARCHAR(255) NOT NULL,
+    is_completed BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+);
