@@ -250,20 +250,25 @@ if ($sheetId === '') {
 }
 
 $returnPage = max(1, (int) ($_GET['page'] ?? 1));
+$returnFrom = getOptionalQuery('from');
 $returnName = getOptionalQuery('name');
 $returnVideoStaff = getOptionalQuery('video_staff');
 $returnSalesStaff = getOptionalQuery('sales_staff');
 $indexBackParams = ['page' => $returnPage];
-if ($returnName !== null) {
-    $indexBackParams['name'] = $returnName;
+if ($returnFrom === 'request_management') {
+    $indexBackUrl = 'request_management.php?' . http_build_query($indexBackParams);
+} else {
+    if ($returnName !== null) {
+        $indexBackParams['name'] = $returnName;
+    }
+    if ($returnVideoStaff !== null) {
+        $indexBackParams['video_staff'] = $returnVideoStaff;
+    }
+    if ($returnSalesStaff !== null) {
+        $indexBackParams['sales_staff'] = $returnSalesStaff;
+    }
+    $indexBackUrl = 'index.php?' . http_build_query($indexBackParams);
 }
-if ($returnVideoStaff !== null) {
-    $indexBackParams['video_staff'] = $returnVideoStaff;
-}
-if ($returnSalesStaff !== null) {
-    $indexBackParams['sales_staff'] = $returnSalesStaff;
-}
-$indexBackUrl = 'index.php?' . http_build_query($indexBackParams);
 
 function tableHasColumn(PDO $pdo, string $tableName, string $columnName): bool
 {

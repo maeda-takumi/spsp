@@ -459,6 +459,18 @@ body {
   background: var(--badge-bg);
   border: 1px solid #d4e2ff;
 }
+.badge--pending {
+  color: #92400e;
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.badge--completed {
+  color: #166534;
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+}
+
 
 .pagination {
   display: flex;

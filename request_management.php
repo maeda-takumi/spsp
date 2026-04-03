@@ -56,6 +56,7 @@ $requestManagementExists = (bool) $rmExistsStmt->fetchColumn();
 
 $rows = [];
 $rmColumns = [];
+$visibleRmColumns = [];
 $total = 0;
 $totalPages = 1;
 
@@ -68,6 +69,11 @@ if ($requestManagementExists) {
             $rmColumns[] = $column;
         }
     }
+
+    $visibleRmColumns = array_values(array_filter(
+        $rmColumns,
+        static fn (string $column): bool => !in_array($column, ['id', 'created_at'], true)
+    ));
 
     $countStmt = $pdo->query('SELECT COUNT(*) FROM request_management');
     $total = (int) ($countStmt !== false ? $countStmt->fetchColumn() : 0);
@@ -121,7 +127,7 @@ require 'header.php';
     <p>LINKS</p>
     <nav class="side-nav" aria-label="メニュー">
       <a href="index.php">顧客一覧</a>
-      <a href="request_management.php">request_management一覧</a>
+      <a href="request_management.php">送付依頼一覧</a>
     </nav>
   </aside>
 
@@ -135,13 +141,20 @@ require 'header.php';
         <table class="table">
           <thead>
           <tr>
-            <?php foreach ($rmColumns as $column): ?>
-              <th><?= h($column); ?></th>
+            <?php
+            $headerLabels = [
+                'sheet_id' => 'シートID',
+                'document_type' => '送付種別',
+                'is_completed' => '状態',
+            ];
+            ?>
+            <?php foreach ($visibleRmColumns as $column): ?>
+              <th><?= h($headerLabels[$column] ?? $column); ?></th>
             <?php endforeach; ?>
-            <th>line_name</th>
-            <th>email</th>
-            <th>video_staff</th>
-            <th>sales_staff</th>
+            <th>LINE名</th>
+            <th>メールアドレス</th>
+            <th>演者名</th>
+            <th>セールス名</th>
             <th>操作</th>
           </tr>
           </thead>
@@ -149,16 +162,31 @@ require 'header.php';
           <?php foreach ($rows as $row): ?>
             <?php $rowSheetId = (string) ($row['rm__sheet_id'] ?? ''); ?>
             <tr>
-              <?php foreach ($rmColumns as $column): ?>
-                <td data-label="<?= h($column); ?>"><?= h((string) ($row['rm__' . $column] ?? '')); ?></td>
+              <?php foreach ($visibleRmColumns as $column): ?>
+                <?php
+                $rawValue = (string) ($row['rm__' . $column] ?? '');
+                $label = $headerLabels[$column] ?? $column;
+                ?>
+                <td data-label="<?= h($label); ?>">
+                  <?php if ($column === 'is_completed'): ?>
+                    <?php
+                    $isCompleted = (int) $rawValue === 1;
+                    $statusText = $isCompleted ? '送付済' : '未送付';
+                    $statusClass = $isCompleted ? 'badge--completed' : 'badge--pending';
+                    ?>
+                    <span class="badge <?= h($statusClass); ?>"><?= h($statusText); ?></span>
+                  <?php else: ?>
+                    <?= h($rawValue); ?>
+                  <?php endif; ?>
+                </td>
               <?php endforeach; ?>
-              <td data-label="line_name"><?= h((string) ($row['csr_line_name'] ?? '')); ?></td>
-              <td data-label="email"><?= h((string) ($row['csr_email'] ?? '')); ?></td>
-              <td data-label="video_staff"><?= h((string) ($row['csr_video_staff'] ?? '')); ?></td>
-              <td data-label="sales_staff"><?= h((string) ($row['csr_sales_staff'] ?? '')); ?></td>
+              <td data-label="LINE名"><?= h((string) ($row['csr_line_name'] ?? '')); ?></td>
+              <td data-label="メールアドレス"><?= h((string) ($row['csr_email'] ?? '')); ?></td>
+              <td data-label="演者名"><?= h((string) ($row['csr_video_staff'] ?? '')); ?></td>
+              <td data-label="セールス名"><?= h((string) ($row['csr_sales_staff'] ?? '')); ?></td>
               <td data-label="操作">
                 <?php if ($rowSheetId !== ''): ?>
-                  <a class="btn btn-ghost" href="detail.php?<?= h(http_build_query(['sheet_id' => $rowSheetId])); ?>">詳細</a>
+                  <a class="btn btn-ghost" href="detail.php?<?= h(http_build_query(['sheet_id' => $rowSheetId, 'from' => 'request_management', 'page' => $page])); ?>">詳細</a>
                 <?php else: ?>
                   <span class="meta">sheet_idなし</span>
                 <?php endif; ?>
