@@ -89,7 +89,17 @@ $videoStaffColumn = tableHasColumn($pdo, 'customer_sales_records', 'video_dtaff'
 
 $hasPendingRequest = false;
 if (tableHasColumn($pdo, 'request_management', 'is_completed')) {
-    $pendingRequestStmt = $pdo->query('SELECT 1 FROM request_management WHERE is_completed = 0 LIMIT 1');
+    if (tableHasColumn($pdo, 'request_management', 'send_date')) {
+        $pendingRequestStmt = $pdo->query(
+            'SELECT 1
+             FROM request_management
+             WHERE is_completed = 0
+               AND DATE(send_date) = CURRENT_DATE()
+             LIMIT 1'
+        );
+    } else {
+        $pendingRequestStmt = $pdo->query('SELECT 1 FROM request_management WHERE is_completed = 0 LIMIT 1');
+    }
     $hasPendingRequest = (bool) $pendingRequestStmt->fetchColumn();
 }
 
