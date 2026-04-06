@@ -256,7 +256,14 @@ require 'header.php';
               <td data-label="セールス名"><?= h((string) ($row['csr_sales_staff'] ?? '')); ?></td> -->
               <td data-label="操作">
                 <?php if ($rowSheetId !== ''): ?>
-                  <a class="btn btn-ghost" href="detail.php?<?= h(http_build_query(['sheet_id' => $rowSheetId, 'from' => 'request_management', 'page' => $page])); ?>">詳細</a>
+                  <?php $requestId = (string) ($row['rm__id'] ?? ''); ?>
+                  <?php
+                  $detailParams = ['sheet_id' => $rowSheetId, 'from' => 'request_management', 'page' => $page];
+                  if ($requestId !== '') {
+                      $detailParams['request_id'] = $requestId;
+                  }
+                  ?>
+                  <a class="btn btn-ghost" href="detail.php?<?= h(http_build_query($detailParams)); ?>">詳細</a>
                 <?php else: ?>
                   <span class="meta">sheet_idなし</span>
                 <?php endif; ?>

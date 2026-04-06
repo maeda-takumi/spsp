@@ -254,6 +254,8 @@ $returnFrom = getOptionalQuery('from');
 $returnName = getOptionalQuery('name');
 $returnVideoStaff = getOptionalQuery('video_staff');
 $returnSalesStaff = getOptionalQuery('sales_staff');
+$requestManagementId = filter_input(INPUT_GET, 'request_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+$requestManagementId = $requestManagementId !== false && $requestManagementId !== null ? (int) $requestManagementId : null;
 $indexBackParams = ['page' => $returnPage];
 if ($returnFrom === 'request_management') {
     $indexBackUrl = 'request_management.php?' . http_build_query($indexBackParams);
@@ -270,6 +272,35 @@ if ($returnFrom === 'request_management') {
     $indexBackUrl = 'index.php?' . http_build_query($indexBackParams);
 }
 
+$detailBaseParams = ['sheet_id' => $sheetId, 'page' => $returnPage];
+if ($returnFrom !== null) {
+    $detailBaseParams['from'] = $returnFrom;
+}
+if ($returnName !== null) {
+    $detailBaseParams['name'] = $returnName;
+}
+if ($returnVideoStaff !== null) {
+    $detailBaseParams['video_staff'] = $returnVideoStaff;
+}
+if ($returnSalesStaff !== null) {
+    $detailBaseParams['sales_staff'] = $returnSalesStaff;
+}
+if ($requestManagementId !== null) {
+    $detailBaseParams['request_id'] = (string) $requestManagementId;
+}
+
+function buildDetailUrl(array $extraParams = [], string $anchor = ''): string
+{
+    global $detailBaseParams;
+
+    $query = array_merge($detailBaseParams, $extraParams);
+    $url = 'detail.php?' . http_build_query($query);
+    if ($anchor !== '') {
+        $url .= '#' . ltrim($anchor, '#');
+    }
+
+    return $url;
+}
 function tableHasColumn(PDO $pdo, string $tableName, string $columnName): bool
 {
     $stmt = $pdo->prepare(
@@ -318,7 +349,7 @@ if (!$record) {
 }
 
 $requestManagementInfo = null;
-if (tableExists($pdo, 'request_management')) {
+if ($requestManagementId !== null && tableExists($pdo, 'request_management')) {
     $requiredRequestManagementColumns = ['sheet_id', 'request_type', 'document_type', 'is_completed', 'created_at'];
     $hasRequiredColumns = true;
     foreach ($requiredRequestManagementColumns as $requiredRequestManagementColumn) {
@@ -330,16 +361,15 @@ if (tableExists($pdo, 'request_management')) {
 
     if ($hasRequiredColumns) {
         $requestManagementStmt = $pdo->prepare(
-            'SELECT request_type, document_type, is_completed, created_at
+            'SELECT id, sheet_id, request_type, document_type, is_completed, created_at
              FROM request_management
-             WHERE sheet_id = :sheet_id
-             ORDER BY created_at DESC
+             WHERE id = :id
              LIMIT 1'
         );
-        $requestManagementStmt->bindValue(':sheet_id', $sheetId);
+        $requestManagementStmt->bindValue(':id', $requestManagementId, PDO::PARAM_INT);
         $requestManagementStmt->execute();
         $fetchedRequestManagementInfo = $requestManagementStmt->fetch();
-        if (is_array($fetchedRequestManagementInfo)) {
+        if (is_array($fetchedRequestManagementInfo) && (string) ($fetchedRequestManagementInfo['sheet_id'] ?? '') === $sheetId) {
             $requestManagementInfo = $fetchedRequestManagementInfo;
         }
     }
@@ -554,7 +584,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $insertMemoStmt->bindValue(':sheet_id', $sheetIdForMemo);
                 $insertMemoStmt->execute();
             }
-            header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&memo_saved=1&refresh=' . time() . '#customer-memo');
+            header('Location: ' . buildDetailUrl(['memo_saved' => '1', 'refresh' => (string) time()], 'customer-memo'));
             exit;
         }
     } elseif ($action === 'template_create' || $action === 'template_update' || $action === 'template_delete') {
@@ -578,7 +608,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $deleteTemplateStmt = $pdo->prepare('DELETE FROM email_templates WHERE id = :id');
                 $deleteTemplateStmt->bindValue(':id', $templateId, PDO::PARAM_INT);
                 $deleteTemplateStmt->execute();
-                header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&template_deleted=1&refresh=' . time() . '#email-compose');
+                header('Location: ' . buildDetailUrl(['template_deleted' => '1', 'refresh' => (string) time()], 'email-compose'));
                 exit;
             }
         } else {
@@ -594,7 +624,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $createTemplateStmt->bindValue(':chatwork_message_template', $templateNotificationBody);
                 $createTemplateStmt->bindValue(':chatwork_mention_ids', $templateMentionIds !== [] ? implode(',', $templateMentionIds) : null, $templateMentionIds !== [] ? PDO::PARAM_STR : PDO::PARAM_NULL);
                 $createTemplateStmt->execute();
-                header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&template_saved=1&refresh=' . time() . '#email-compose');
+                header('Location: ' . buildDetailUrl(['template_saved' => '1', 'refresh' => (string) time()], 'email-compose'));
                 exit;
             } else {
                 if ($templateId <= 0) {
@@ -608,7 +638,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $updateTemplateStmt->bindValue(':chatwork_mention_ids', $templateMentionIds !== [] ? implode(',', $templateMentionIds) : null, $templateMentionIds !== [] ? PDO::PARAM_STR : PDO::PARAM_NULL);
                     $updateTemplateStmt->bindValue(':id', $templateId, PDO::PARAM_INT);
                     $updateTemplateStmt->execute();
-                    header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&template_saved=1&refresh=' . time() . '#email-compose');
+                    header('Location: ' . buildDetailUrl(['template_saved' => '1', 'refresh' => (string) time()], 'email-compose'));
                     exit;
                 }
             }
@@ -814,13 +844,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     error_log('Chatwork通知エラー: ' . $chatworkError->getMessage());
                 }
                 if ($errors === []) {
-                    header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&mail_sent=1&refresh=' . time() . '#email-compose');
+                    header('Location: ' . buildDetailUrl(['mail_sent' => '1', 'refresh' => (string) time()], 'email-compose'));
                     exit;
                 }
             }
 
             if ($errors === []) {
-                header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&draft_saved=1&refresh=' . time() . '#email-compose');
+                header('Location: ' . buildDetailUrl(['draft_saved' => '1', 'refresh' => (string) time()], 'email-compose'));
                 exit;
             }
         }
@@ -850,7 +880,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $deleteStmt->bindValue(':sheet_id', $recordSheetId);
         $deleteStmt->execute();
 
-        header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&deleted=1&refresh=' . time() . '#writing-list');
+        header('Location: ' . buildDetailUrl(['deleted' => '1', 'refresh' => (string) time()], 'writing-list'));
         exit;
     }
 
@@ -940,7 +970,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($errors === []) {
-            header('Location: detail.php?sheet_id=' . rawurlencode($sheetId) . '&' . $noticeParam . '&refresh=' . time() . '#writing-list');
+            header('Location: ' . buildDetailUrl([$noticeParam => '1', 'refresh' => (string) time()], 'writing-list'));
             exit;
         }
     }
@@ -1058,15 +1088,33 @@ require 'header.php';
     </header>
     <div class="detail-columns">
       <section id="customer-info" class="panel content-panel detail-panel">
+   
         <h2>顧客情報</h2>
         <?php if ($requestManagementInfo !== null): ?>
           <?php $requestCompleted = isset($requestManagementInfo['is_completed']) && (int) $requestManagementInfo['is_completed'] === 1; ?>
-          <ul class="request-management-meta">
-            <li><span class="meta-label">送付種類</span><strong><?= h((string) ($requestManagementInfo['request_type'] ?? '')); ?></strong></li>
-            <li><span class="meta-label">送付資料</span><strong><?= h((string) ($requestManagementInfo['document_type'] ?? '')); ?></strong></li>
-            <li><span class="meta-label">送付状況</span><strong><?= h($requestCompleted ? '送付済' : '未送付'); ?></strong></li>
-            <li><span class="meta-label">送付依頼日</span><strong><?= h((string) ($requestManagementInfo['created_at'] ?? '')); ?></strong></li>
-          </ul>
+          <?php
+          $requestRawDate = (string) ($requestManagementInfo['created_at'] ?? '');
+          $requestDate = '';
+          if ($requestRawDate !== '') {
+              $timestamp = strtotime($requestRawDate);
+              $requestDate = $timestamp !== false ? date('Y/m/d', $timestamp) : (string) preg_replace('/\s.+$/', '', $requestRawDate);
+          }
+          $requestSummaryMemo = trim((string) preg_replace('/\s+/u', ' ', $memoValue));
+          ?>
+          <div class="request-management-summary" aria-label="依頼内容">
+            <div class="request-management-summary-main">
+              <span><span class="meta-label">依頼内容</span><strong><?= h((string) ($requestManagementInfo['request_type'] ?? '')); ?></strong></span>
+              <span><span class="meta-label">資料</span><strong><?= h((string) ($requestManagementInfo['document_type'] ?? '')); ?></strong></span>
+              <span><span class="meta-label">状況</span><strong><?= h($requestCompleted ? '送付済' : '未送付'); ?></strong></span>
+              <span><span class="meta-label">依頼日</span><strong><?= h($requestDate); ?></strong></span>
+            </div>
+            <div class="request-management-summary-memo">
+              <span class="meta-label">memo</span>
+              <strong><?= h($requestSummaryMemo !== '' ? $requestSummaryMemo : '（未入力）'); ?></strong>
+            </div>
+          </div>
+        <?php else: ?>
+          <p class="meta">送付依頼一覧経由で指定された依頼がないため、依頼情報は表示していません。</p>
         <?php endif; ?>
         <div class="customer-grid">
           <?php foreach ($customerFields as $field => $label): ?>
