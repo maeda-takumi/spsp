@@ -489,6 +489,12 @@ body {
   background: #f4f8ff;
 }
 
+.memo-cell-scroll {
+  max-height: 5.5em;
+  overflow-y: auto;
+  white-space: normal;
+  line-height: 1.4;
+}
 .table-row--completed {
   background: #002e8b36;
 }

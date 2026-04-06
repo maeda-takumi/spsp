@@ -47,6 +47,21 @@ function getQuery(string $key): ?string
     $value = trim($value);
     return $value === '' ? null : $value;
 }
+function formatDisplayDate(string $value): string
+{
+    $trimmed = trim($value);
+    if ($trimmed === '') {
+        return '';
+    }
+
+    try {
+        $date = new DateTimeImmutable($trimmed);
+
+        return $date->format('Y/m/d');
+    } catch (Throwable $e) {
+        return $value;
+    }
+}
 $pdo = db();
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 20;
@@ -244,6 +259,10 @@ require 'header.php';
                     $statusClass = $isCompleted ? 'badge--completed' : 'badge--pending';
                     ?>
                     <span class="badge <?= h($statusClass); ?>"><?= h($statusText); ?></span>
+                  <?php elseif ($column === 'send_date'): ?>
+                    <?= h(formatDisplayDate($rawValue)); ?>
+                  <?php elseif ($column === 'memo'): ?>
+                    <div class="memo-cell-scroll"><?= nl2br(h($rawValue)); ?></div>
                   <?php else: ?>
                     <?= h($rawValue); ?>
                   <?php endif; ?>
