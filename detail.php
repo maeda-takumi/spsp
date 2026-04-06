@@ -360,8 +360,13 @@ if ($requestManagementId !== null && tableExists($pdo, 'request_management')) {
     }
 
     if ($hasRequiredColumns) {
+        $hasRequestManagementMemoColumn = tableHasColumn($pdo, 'request_management', 'memo');
+        $requestManagementSelectColumns = 'id, sheet_id, request_type, document_type, is_completed, created_at';
+        if ($hasRequestManagementMemoColumn) {
+            $requestManagementSelectColumns .= ', memo';
+        }
         $requestManagementStmt = $pdo->prepare(
-            'SELECT id, sheet_id, request_type, document_type, is_completed, created_at
+            'SELECT ' . $requestManagementSelectColumns . '
              FROM request_management
              WHERE id = :id
              LIMIT 1'
@@ -1099,7 +1104,10 @@ require 'header.php';
               $timestamp = strtotime($requestRawDate);
               $requestDate = $timestamp !== false ? date('Y/m/d', $timestamp) : (string) preg_replace('/\s.+$/', '', $requestRawDate);
           }
-          $requestSummaryMemo = trim((string) preg_replace('/\s+/u', ' ', $memoValue));
+          $requestSummaryMemo = trim((string) preg_replace('/\s+/u', ' ', (string) ($requestManagementInfo['memo'] ?? '')));
+          if ($requestSummaryMemo === '') {
+              $requestSummaryMemo = trim((string) preg_replace('/\s+/u', ' ', $memoValue));
+          }
           ?>
           <div class="request-management-summary" aria-label="依頼内容">
             <div class="request-management-summary-main">
