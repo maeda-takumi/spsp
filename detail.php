@@ -843,6 +843,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sendLogStmt->bindValue(':mail_body', $mailBody);
                 $sendLogStmt->execute();
 
+                if ($requestManagementId !== null && $requestManagementInfo !== null) {
+                    $requestCompletedStmt = $pdo->prepare(
+                        'UPDATE request_management
+                         SET is_completed = 1
+                         WHERE id = :id
+                           AND sheet_id = :sheet_id'
+                    );
+                    $requestCompletedStmt->bindValue(':id', $requestManagementId, PDO::PARAM_INT);
+                    $requestCompletedStmt->bindValue(':sheet_id', $recordSheetId);
+                    $requestCompletedStmt->execute();
+                }
+
                 try {
                     $requestTypeForMailCompletion = trim((string) ($requestManagementInfo['request_type'] ?? ''));
                     if ($requestTypeForMailCompletion === 'サポート面談') {
