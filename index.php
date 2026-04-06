@@ -160,7 +160,6 @@ require 'header.php';
     <h1>SUP-SUP NEO</h1>
     <p>LINKS</p>
     <nav class="side-nav" aria-label="メニュー">
-      <a href="index.php">顧客一覧</a>
       <a href="request_management.php">送付依頼一覧</a>
     </nav>
   </aside>
