@@ -169,6 +169,10 @@ body {
   font-size: 0.92rem;
 }
 
+.side-panel-label {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
 .side-nav {
   margin-top: 24px;
   display: grid;
@@ -183,6 +187,28 @@ body {
   border-radius: 12px;
   padding: 9px 12px;
   background: rgba(255, 255, 255, 0.4);
+}
+
+.side-nav a.is-current {
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  box-shadow: 0 8px 18px rgba(15, 42, 102, 0.22);
+}
+
+.dashboard-shell--customer .side-nav a.is-current {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+
+.dashboard-shell--request .side-nav a.is-current {
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+}
+
+.side-panel--customer {
+  background: linear-gradient(180deg, rgba(220, 236, 255, 0.38), rgba(223, 236, 255, 0.2));
+}
+
+.side-panel--request {
+    background: linear-gradient(329deg, rgba(210, 248, 239, 0.44), rgb(228 0 255 / 31%));
 }
 
 .memo-panel {
@@ -447,6 +473,14 @@ body {
   color: var(--muted);
   font-weight: 600;
   background: #f4f8ff;
+}
+
+.table-row--completed {
+  background: #f5f6f8;
+}
+
+.table-row--completed td {
+  color: #6b7280;
 }
 
 .badge {

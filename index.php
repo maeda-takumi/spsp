@@ -154,8 +154,8 @@ $pageTitle = 'SUP-SUP NEO 顧客一覧';
 require 'header.php';
 ?>
 <div class="glass-board" aria-hidden="true" style="display:none;"></div>
-<div class="dashboard-shell panel">
-  <aside class="side-panel">
+<div class="dashboard-shell panel dashboard-shell--customer">
+  <aside class="side-panel side-panel--customer">
     <!-- <img class="avatar" src="img/neo.png" alt="担当者アイコン" loading="lazy"> -->
     <h1>SUP-SUP NEO</h1>
     <p>LINKS</p>

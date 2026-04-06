@@ -37,10 +37,23 @@ function tableHasColumn(PDO $pdo, string $tableName, string $columnName): bool
     return (bool) $stmt->fetchColumn();
 }
 
+function getQuery(string $key): ?string
+{
+    $value = $_GET[$key] ?? null;
+    if (!is_string($value)) {
+        return null;
+    }
+
+    $value = trim($value);
+    return $value === '' ? null : $value;
+}
 $pdo = db();
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 20;
 $offset = ($page - 1) * $perPage;
+$sheetId = getQuery('sheet_id');
+$name = getQuery('name');
+$status = getQuery('status');
 
 $rmExistsStmt = $pdo->prepare(
     'SELECT 1
@@ -75,8 +88,31 @@ if ($requestManagementExists) {
         static fn (string $column): bool => !in_array($column, ['id', 'created_at'], true)
     ));
 
-    $countStmt = $pdo->query('SELECT COUNT(*) FROM request_management');
-    $total = (int) ($countStmt !== false ? $countStmt->fetchColumn() : 0);
+    $where = [];
+    $params = [];
+
+    if ($sheetId !== null) {
+        $where[] = 'rm.sheet_id LIKE :sheet_id';
+        $params[':sheet_id'] = '%' . $sheetId . '%';
+    }
+    if ($name !== null) {
+        $where[] = '(csr.line_name LIKE :name OR csr.full_name LIKE :name)';
+        $params[':name'] = '%' . $name . '%';
+    }
+    if ($status !== null && in_array($status, ['0', '1'], true)) {
+        $where[] = 'rm.is_completed = :status';
+        $params[':status'] = (int) $status;
+    }
+
+    $whereSql = $where ? (' WHERE ' . implode(' AND ', $where)) : '';
+
+    $countSql = 'SELECT COUNT(*) FROM request_management rm LEFT JOIN customer_sales_records csr ON rm.sheet_id = csr.sheet_id' . $whereSql;
+    $countStmt = $pdo->prepare($countSql);
+    foreach ($params as $key => $value) {
+        $countStmt->bindValue($key, $value);
+    }
+    $countStmt->execute();
+    $total = (int) $countStmt->fetchColumn();
     $totalPages = max(1, (int) ceil($total / $perPage));
     if ($page > $totalPages) {
         $page = $totalPages;
@@ -98,6 +134,7 @@ if ($requestManagementExists) {
     $videoStaffColumn = tableHasColumn($pdo, 'customer_sales_records', 'video_dtaff') ? 'video_dtaff' : 'video_staff';
 
     $selectColumns[] = 'csr.line_name AS csr_line_name';
+    $selectColumns[] = 'csr.full_name AS csr_full_name';
     $selectColumns[] = 'csr.email AS csr_email';
     $selectColumns[] = 'csr.`' . $videoStaffColumn . '` AS csr_video_staff';
     $selectColumns[] = 'csr.sales_staff AS csr_sales_staff';
@@ -107,22 +144,27 @@ if ($requestManagementExists) {
     $sql = 'SELECT ' . implode(', ', $selectColumns)
         . ' FROM request_management rm'
         . ' LEFT JOIN customer_sales_records csr ON rm.sheet_id = csr.sheet_id '
+        . $whereSql
+        . ' '
         . $orderSql
         . ' LIMIT :limit OFFSET :offset';
 
     $stmt = $pdo->prepare($sql);
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value);
+    }
     $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
     $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
     $stmt->execute();
     $rows = $stmt->fetchAll();
 }
 
-$pageTitle = 'request_management 一覧';
+$pageTitle = 'SUP-SUP NEO 送付依頼一覧';
 require 'header.php';
 ?>
 <div class="glass-board" aria-hidden="true" style="display:none;"></div>
-<div class="dashboard-shell panel">
-  <aside class="side-panel">
+<div class="dashboard-shell panel dashboard-shell--request">
+  <aside class="side-panel side-panel--request">
     <h1>SUP-SUP NEO</h1>
     <p>LINKS</p>
     <nav class="side-nav" aria-label="メニュー">
@@ -131,6 +173,32 @@ require 'header.php';
   </aside>
 
   <section class="main-panel">
+    <section class="panel content-panel filters">
+      <form method="get">
+        <div class="filter-grid">
+          <div class="field">
+            <label for="sheet_id">シートID</label>
+            <input id="sheet_id" type="text" name="sheet_id" value="<?= h($sheetId); ?>" placeholder="例: 35016">
+          </div>
+          <div class="field">
+            <label for="name">本名 / LINE名</label>
+            <input id="name" type="text" name="name" value="<?= h($name); ?>" placeholder="例: 山田">
+          </div>
+          <div class="field">
+            <label for="status">状態</label>
+            <select id="status" name="status">
+              <option value="">すべて</option>
+              <option value="0" <?= $status === '0' ? 'selected' : ''; ?>>未送付</option>
+              <option value="1" <?= $status === '1' ? 'selected' : ''; ?>>送付済</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" type="submit">検索する</button>
+          <a class="btn btn-ghost" href="request_management.php">リセット</a>
+        </div>
+      </form>
+    </section>
     <section class="panel content-panel table-wrap">
       <?php if (!$requestManagementExists): ?>
         <div class="empty">request_management テーブルが存在しません。</div>
@@ -151,6 +219,7 @@ require 'header.php';
               <th><?= h($headerLabels[$column] ?? $column); ?></th>
             <?php endforeach; ?>
             <th>LINE名</th>
+            <th>本名</th>
             <th>メールアドレス</th>
             <th>演者名</th>
             <th>セールス名</th>
@@ -160,7 +229,8 @@ require 'header.php';
           <tbody>
           <?php foreach ($rows as $row): ?>
             <?php $rowSheetId = (string) ($row['rm__sheet_id'] ?? ''); ?>
-            <tr>
+            <?php $isCompletedRow = isset($row['rm__is_completed']) && (int) $row['rm__is_completed'] === 1; ?>
+            <tr class="<?= $isCompletedRow ? 'table-row--completed' : ''; ?>">
               <?php foreach ($visibleRmColumns as $column): ?>
                 <?php
                 $rawValue = (string) ($row['rm__' . $column] ?? '');
@@ -180,6 +250,7 @@ require 'header.php';
                 </td>
               <?php endforeach; ?>
               <td data-label="LINE名"><?= h((string) ($row['csr_line_name'] ?? '')); ?></td>
+              <td data-label="本名"><?= h((string) ($row['csr_full_name'] ?? '')); ?></td>
               <td data-label="メールアドレス"><?= h((string) ($row['csr_email'] ?? '')); ?></td>
               <td data-label="演者名"><?= h((string) ($row['csr_video_staff'] ?? '')); ?></td>
               <td data-label="セールス名"><?= h((string) ($row['csr_sales_staff'] ?? '')); ?></td>
