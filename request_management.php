@@ -221,8 +221,8 @@ require 'header.php';
             <th>LINE名</th>
             <th>本名</th>
             <th>メールアドレス</th>
-            <th>演者名</th>
-            <th>セールス名</th>
+            <!-- <th>演者名</th>
+            <th>セールス名</th> -->
             <th>操作</th>
           </tr>
           </thead>
@@ -252,8 +252,8 @@ require 'header.php';
               <td data-label="LINE名"><?= h((string) ($row['csr_line_name'] ?? '')); ?></td>
               <td data-label="本名"><?= h((string) ($row['csr_full_name'] ?? '')); ?></td>
               <td data-label="メールアドレス"><?= h((string) ($row['csr_email'] ?? '')); ?></td>
-              <td data-label="演者名"><?= h((string) ($row['csr_video_staff'] ?? '')); ?></td>
-              <td data-label="セールス名"><?= h((string) ($row['csr_sales_staff'] ?? '')); ?></td>
+              <!-- <td data-label="演者名"><?= h((string) ($row['csr_video_staff'] ?? '')); ?></td>
+              <td data-label="セールス名"><?= h((string) ($row['csr_sales_staff'] ?? '')); ?></td> -->
               <td data-label="操作">
                 <?php if ($rowSheetId !== ''): ?>
                   <a class="btn btn-ghost" href="detail.php?<?= h(http_build_query(['sheet_id' => $rowSheetId, 'from' => 'request_management', 'page' => $page])); ?>">詳細</a>
