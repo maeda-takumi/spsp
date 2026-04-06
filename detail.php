@@ -1098,11 +1098,11 @@ require 'header.php';
         <?php if ($requestManagementInfo !== null): ?>
           <?php $requestCompleted = isset($requestManagementInfo['is_completed']) && (int) $requestManagementInfo['is_completed'] === 1; ?>
           <?php
-          $requestRawDate = (string) ($requestManagementInfo['created_at'] ?? '');
-          $requestDate = '';
-          if ($requestRawDate !== '') {
-              $timestamp = strtotime($requestRawDate);
-              $requestDate = $timestamp !== false ? date('Y/m/d', $timestamp) : (string) preg_replace('/\s.+$/', '', $requestRawDate);
+          $sendRawDate = (string) ($requestManagementInfo['send_date'] ?? '');
+          $sendDate = '';
+          if ($sendRawDate !== '') {
+              $timestamp = strtotime($sendRawDate);
+              $sendDate = $timestamp !== false ? date('Y/m/d', $timestamp) : (string) preg_replace('/\s.+$/', '', $sendRawDate);
           }
           $requestSummaryMemo = trim((string) preg_replace('/\s+/u', ' ', (string) ($requestManagementInfo['memo'] ?? '')));
           if ($requestSummaryMemo === '') {
@@ -1114,7 +1114,7 @@ require 'header.php';
               <span><span class="meta-label">依頼内容</span><strong><?= h((string) ($requestManagementInfo['request_type'] ?? '')); ?></strong></span>
               <span><span class="meta-label">資料</span><strong><?= h((string) ($requestManagementInfo['document_type'] ?? '')); ?></strong></span>
               <span><span class="meta-label">状況</span><strong><?= h($requestCompleted ? '送付済' : '未送付'); ?></strong></span>
-              <span><span class="meta-label">依頼日</span><strong><?= h($requestDate); ?></strong></span>
+              <span><span class="meta-label">送信日</span><strong><?= h($sendDate); ?></strong></span>
             </div>
             <div class="request-management-summary-memo">
               <span class="meta-label">memo</span>

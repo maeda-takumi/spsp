@@ -81,6 +81,7 @@ function ensureRequestManagementTable(PDO $pdo): void
             sheet_id BIGINT NOT NULL,
             document_type VARCHAR(255) NOT NULL,
             request_type VARCHAR(255) NOT NULL,
+            send_date DATE NULL,
             memo TEXT NULL,
             is_completed BOOLEAN NOT NULL DEFAULT FALSE,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -112,6 +113,14 @@ function ensureRequestManagementTable(PDO $pdo): void
     if (!$columnCheckStmt->fetchColumn()) {
         $pdo->exec('ALTER TABLE request_management ADD COLUMN memo TEXT NULL AFTER request_type');
     }
+    $columnCheckStmt->bindValue(':schema', DB_NAME);
+    $columnCheckStmt->bindValue(':table_name', 'request_management');
+    $columnCheckStmt->bindValue(':column_name', 'send_date');
+    $columnCheckStmt->execute();
+
+    if (!$columnCheckStmt->fetchColumn()) {
+        $pdo->exec('ALTER TABLE request_management ADD COLUMN send_date DATE NULL AFTER request_type');
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -122,6 +131,7 @@ $input = parseInput();
 $sheetId = normalizeField($input, 'sheet_id');
 $documentType = normalizeField($input, 'document_type');
 $requestType = normalizeField($input, 'request_type');
+$sendDate = normalizeField($input, 'send_date');
 $memo = normalizeField($input, 'memo');
 
 if ($sheetId === '' || $documentType === '' || $requestType === '') {
@@ -137,12 +147,13 @@ try {
     ensureRequestManagementTable($pdo);
 
     $stmt = $pdo->prepare(
-        'INSERT INTO request_management (sheet_id, document_type, request_type, memo)
-         VALUES (:sheet_id, :document_type, :request_type, :memo)'
+        'INSERT INTO request_management (sheet_id, document_type, request_type, send_date, memo)
+         VALUES (:sheet_id, :document_type, :request_type, :send_date, :memo)'
     );
     $stmt->bindValue(':sheet_id', (int) $sheetId, PDO::PARAM_INT);
     $stmt->bindValue(':document_type', $documentType);
     $stmt->bindValue(':request_type', $requestType);
+    $stmt->bindValue(':send_date', $sendDate === '' ? null : $sendDate, $sendDate === '' ? PDO::PARAM_NULL : PDO::PARAM_STR);
     $stmt->bindValue(':memo', $memo);
     $stmt->execute();
 
