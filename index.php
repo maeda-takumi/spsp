@@ -87,6 +87,12 @@ $pdo = db();
 
 $videoStaffColumn = tableHasColumn($pdo, 'customer_sales_records', 'video_dtaff') ? 'video_dtaff' : 'video_staff';
 
+$hasPendingRequest = false;
+if (tableHasColumn($pdo, 'request_management', 'is_completed')) {
+    $pendingRequestStmt = $pdo->query('SELECT 1 FROM request_management WHERE is_completed = 0 LIMIT 1');
+    $hasPendingRequest = (bool) $pendingRequestStmt->fetchColumn();
+}
+
 $countStmt = $pdo->prepare("SELECT COUNT(*) FROM customer_sales_records {$whereSql}");
 foreach ($params as $key => $value) {
     $countStmt->bindValue($key, $value);
@@ -160,7 +166,12 @@ require 'header.php';
     <h1>SUP-SUP NEO</h1>
     <p>LINKS</p>
     <nav class="side-nav" aria-label="メニュー">
-      <a href="request_management.php">送付依頼一覧</a>
+      <a class="side-nav__request-link" href="request_management.php">
+        <span>送付依頼一覧</span>
+        <?php if ($hasPendingRequest): ?>
+          <img class="side-nav__alert-icon" src="img/alert.png" alt="未完了の送付依頼あり" loading="lazy">
+        <?php endif; ?>
+      </a>
     </nav>
   </aside>
 

@@ -189,6 +189,20 @@ body {
   background: rgba(255, 255, 255, 0.4);
 }
 
+.side-nav__request-link {
+  position: relative;
+  padding-right: 40px !important;
+}
+
+.side-nav__alert-icon {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
 .side-nav a.is-current {
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.62);
@@ -698,6 +712,36 @@ body {
   font-size: 1.1rem;
 }
 
+.request-management-meta {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid #dfeaff;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f6f9ff 0%, #ffffff 100%);
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.request-management-meta li {
+  display: grid;
+  grid-template-columns: minmax(125px, 145px) 1fr;
+  align-items: start;
+  gap: 8px 10px;
+  line-height: 1.45;
+  font-size: 0.9rem;
+}
+
+.request-management-meta .meta-label {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.request-management-meta strong {
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+}
 .customer-grid {
   display: grid;
   gap: 8px;
@@ -1172,6 +1216,14 @@ audio {
     align-items: flex-start;
   }
 
+  .request-management-meta {
+    padding: 10px 12px;
+  }
+
+  .request-management-meta li {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
   .copy-button {
     width: 28px;
     height: 28px;

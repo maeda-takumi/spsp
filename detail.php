@@ -317,6 +317,33 @@ if (!$record) {
     exit;
 }
 
+$requestManagementInfo = null;
+if (tableExists($pdo, 'request_management')) {
+    $requiredRequestManagementColumns = ['sheet_id', 'request_type', 'document_type', 'is_completed', 'created_at'];
+    $hasRequiredColumns = true;
+    foreach ($requiredRequestManagementColumns as $requiredRequestManagementColumn) {
+        if (!tableHasColumn($pdo, 'request_management', $requiredRequestManagementColumn)) {
+            $hasRequiredColumns = false;
+            break;
+        }
+    }
+
+    if ($hasRequiredColumns) {
+        $requestManagementStmt = $pdo->prepare(
+            'SELECT request_type, document_type, is_completed, created_at
+             FROM request_management
+             WHERE sheet_id = :sheet_id
+             ORDER BY created_at DESC
+             LIMIT 1'
+        );
+        $requestManagementStmt->bindValue(':sheet_id', $sheetId);
+        $requestManagementStmt->execute();
+        $fetchedRequestManagementInfo = $requestManagementStmt->fetch();
+        if (is_array($fetchedRequestManagementInfo)) {
+            $requestManagementInfo = $fetchedRequestManagementInfo;
+        }
+    }
+}
 $pdo->exec('CREATE TABLE IF NOT EXISTS email_templates (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     template_name VARCHAR(255) NOT NULL,
@@ -1032,6 +1059,15 @@ require 'header.php';
     <div class="detail-columns">
       <section id="customer-info" class="panel content-panel detail-panel">
         <h2>顧客情報</h2>
+        <?php if ($requestManagementInfo !== null): ?>
+          <?php $requestCompleted = isset($requestManagementInfo['is_completed']) && (int) $requestManagementInfo['is_completed'] === 1; ?>
+          <ul class="request-management-meta">
+            <li><span class="meta-label">送付種類</span><strong><?= h((string) ($requestManagementInfo['request_type'] ?? '')); ?></strong></li>
+            <li><span class="meta-label">送付資料</span><strong><?= h((string) ($requestManagementInfo['document_type'] ?? '')); ?></strong></li>
+            <li><span class="meta-label">送付状況</span><strong><?= h($requestCompleted ? '送付済' : '未送付'); ?></strong></li>
+            <li><span class="meta-label">送付依頼日</span><strong><?= h((string) ($requestManagementInfo['created_at'] ?? '')); ?></strong></li>
+          </ul>
+        <?php endif; ?>
         <div class="customer-grid">
           <?php foreach ($customerFields as $field => $label): ?>
             <article class="customer-item">
