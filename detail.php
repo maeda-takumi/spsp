@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once 'config.php';
 require_once 'chatwork_notifier.php';
 require_once 'support_interview_sheet_appender.php';
+require_once 'support_interview_mail_completion_updater.php';
 require_once 'refund_guarantee_section.php';
 require_once 'customer_tagging.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -361,7 +362,11 @@ if ($requestManagementId !== null && tableExists($pdo, 'request_management')) {
 
     if ($hasRequiredColumns) {
         $hasRequestManagementMemoColumn = tableHasColumn($pdo, 'request_management', 'memo');
+        $hasRequestManagementSendDateColumn = tableHasColumn($pdo, 'request_management', 'send_date');
         $requestManagementSelectColumns = 'id, sheet_id, request_type, document_type, is_completed, created_at';
+        if ($hasRequestManagementSendDateColumn) {
+            $requestManagementSelectColumns .= ', send_date';
+        }
         if ($hasRequestManagementMemoColumn) {
             $requestManagementSelectColumns .= ', memo';
         }
@@ -839,7 +844,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sendLogStmt->execute();
 
                 try {
-                    appendSupportInterviewMailCompletedToSheet($record);
+                    $requestTypeForMailCompletion = trim((string) ($requestManagementInfo['request_type'] ?? ''));
+                    if ($requestTypeForMailCompletion === 'サポート面談') {
+                        appendSupportInterviewMailCompletedForSupportInterview($record);
+                    } else {
+                        appendSupportInterviewMailCompletedToSheet($record);
+                    }
                 } catch (Throwable $e) {
                     $errors[] = '送付メール完了のスプレッドシート連携に失敗しました。' . $e->getMessage();
                 }
