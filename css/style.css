@@ -201,6 +201,27 @@ body {
   width: 18px;
   height: 18px;
   object-fit: contain;
+  transform-origin: center;
+  animation: side-nav-icon-breathing 3.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes side-nav-icon-breathing {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .side-nav__alert-icon {
+    animation: none;
+  }
 }
 
 .side-nav a.is-current {
