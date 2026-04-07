@@ -146,17 +146,27 @@ body {
   background: rgba(223, 236, 255, 0.18);
 }
 
+.sidebar-avatar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
 .avatar {
   width: 84px;
   height: 84px;
   border-radius: 50%;
   border: 3px solid rgba(255, 255, 255, 0.55);
   display: block;
-  margin-bottom: 16px;
   object-fit: cover;
   background: linear-gradient(135deg, #e8f0ff, #bfd7ff);
   padding: 7px;
-  cursor: pointer;
 }
 
 
@@ -1225,7 +1235,7 @@ audio {
     margin: 0;
   }
 
-  .dashboard-shell--detail .side-panel .avatar {
+  .dashboard-shell--detail .side-panel .sidebar-avatar-button {
     margin-bottom: 12px;
   }
 

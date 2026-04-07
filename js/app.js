@@ -141,6 +141,25 @@
       });
     });
   }
+  const sidebarAvatar = document.querySelector('[data-sidebar-avatar]');
+  const sidebarAvatarTrigger = document.querySelector('[data-sidebar-avatar-trigger]');
+  if (sidebarAvatar && sidebarAvatarTrigger) {
+    const SIDEBAR_AVATAR_IMAGES = [
+      { src: 'img/human.png', threshold: 0.95 },
+      { src: 'img/human_gold2.png', threshold: 0.995 },
+      { src: 'img/human_rainbow2.png', threshold: 1 },
+    ];
+
+    const pickSidebarAvatarImage = () => {
+      const randomValue = Math.random();
+      const selectedImage = SIDEBAR_AVATAR_IMAGES.find((image) => randomValue < image.threshold);
+      return selectedImage ? selectedImage.src : SIDEBAR_AVATAR_IMAGES[0].src;
+    };
+
+    sidebarAvatarTrigger.addEventListener('click', () => {
+      sidebarAvatar.setAttribute('src', pickSidebarAvatarImage());
+    });
+  }
   const sectionToggleButtons = document.querySelectorAll('[data-section-toggle]');
   if (sectionToggleButtons.length > 0) {
     const OPEN_ICON_SRC = 'img/open.png';
