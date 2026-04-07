@@ -229,7 +229,7 @@
     const NORMAL_IMAGE_SRC = 'img/human.png';
     const GOLD_IMAGE_SRC = 'img/human_gold.png';
     const RAINBOW_IMAGE_SRC = 'img/human_rainbow.png';
-    let isAvatarAnimating = false;
+    let specialEffectRunning = false;
 
 
     const preloadImage = (src) => {
