@@ -226,11 +226,20 @@
 
   if (sidebarAvatar) {
     const AVATAR_FADE_DURATION_MS = 360;
+    const AVATAR_SHAKE_MS = 380;
+    const AVATAR_FEEDBACK_MS = 460;
+    const SPECIAL_OVERLAY_VISIBLE_MS = 1180;
     const NORMAL_IMAGE_SRC = 'img/human.png';
     const GOLD_IMAGE_SRC = 'img/human_gold.png';
     const RAINBOW_IMAGE_SRC = 'img/human_rainbow.png';
     let specialEffectRunning = false;
 
+    const overlay = document.createElement('div');
+    overlay.className = 'avatar-special-overlay';
+    const overlayImage = document.createElement('img');
+    overlayImage.setAttribute('alt', '');
+    overlay.appendChild(overlayImage);
+    document.body.appendChild(overlay);
 
     const preloadImage = (src) => {
       const image = new Image();
