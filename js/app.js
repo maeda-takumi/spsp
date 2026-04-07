@@ -223,80 +223,47 @@
 
   const sidebarAvatar = document.querySelector('[data-sidebar-avatar]');
   if (sidebarAvatar) {
-    const SPECIAL_OVERLAY_VISIBLE_MS = 1450;
-    const AVATAR_SHAKE_MS = 420;
-    const AVATAR_FEEDBACK_MS = 460;
-    const RAINBOW_IMAGE_SRC = 'img/human_rainbow.png';
-    const GOLD_IMAGE_SRC = 'img/human_gold.png';
+    const AVATAR_FADE_DURATION_MS = 360;
     const NORMAL_IMAGE_SRC = 'img/human.png';
-    let specialEffectRunning = false;
+    const GOLD_IMAGE_SRC = 'img/human_gold.png';
+    const RAINBOW_IMAGE_SRC = 'img/human_rainbow.png';
+    let isAvatarAnimating = false;
 
-    const overlay = document.createElement('div');
-    overlay.className = 'avatar-special-overlay';
-    overlay.setAttribute('aria-hidden', 'true');
-    const overlayImage = document.createElement('img');
-    overlayImage.alt = '';
-    overlay.appendChild(overlayImage);
-    document.body.appendChild(overlay);
 
     const preloadImage = (src) => {
       const image = new Image();
       image.src = src;
     };
 
-    preloadImage(RAINBOW_IMAGE_SRC);
+    preloadImage(NORMAL_IMAGE_SRC);
     preloadImage(GOLD_IMAGE_SRC);
+    preloadImage(RAINBOW_IMAGE_SRC);
 
-    const playAvatarClickFeedback = () => {
-      sidebarAvatar.classList.remove('is-shaking', 'is-feedback');
-      void sidebarAvatar.offsetHeight;
-      sidebarAvatar.classList.add('is-shaking', 'is-feedback');
-      window.setTimeout(() => {
-        sidebarAvatar.classList.remove('is-shaking', 'is-feedback');
-      }, Math.max(AVATAR_SHAKE_MS, AVATAR_FEEDBACK_MS));
-    };
-
-    const playSpecialEffect = (overlayClassName, imageSrc) => {
-      specialEffectRunning = true;
-      overlay.classList.remove('is-dark', 'is-light', 'is-visible');
-      void overlay.offsetHeight;
-      overlay.classList.add(overlayClassName);
-      overlayImage.setAttribute('src', imageSrc);
-      sidebarAvatar.setAttribute('src', NORMAL_IMAGE_SRC);
-
-      window.requestAnimationFrame(() => {
-        overlay.classList.add('is-visible');
-      });
-
-      window.setTimeout(() => {
-        overlay.classList.remove('is-visible');
-      }, SPECIAL_OVERLAY_VISIBLE_MS);
-
-      window.setTimeout(() => {
-        sidebarAvatar.setAttribute('src', imageSrc);
-        overlay.classList.remove('is-dark', 'is-light');
-        playAvatarClickFeedback();
-        specialEffectRunning = false;
-      }, SPECIAL_OVERLAY_VISIBLE_MS + 760);
+    const pickAvatarImage = () => {
+      const roll = Math.random();
+      if (roll < 0.7) {
+        return NORMAL_IMAGE_SRC;
+      }
+      if (roll < 0.9) {
+        return GOLD_IMAGE_SRC;
+      }
+      return RAINBOW_IMAGE_SRC;
     };
 
     sidebarAvatar.addEventListener('click', () => {
-      if (specialEffectRunning) {
+      if (isAvatarAnimating) {
         return;
       }
 
-      const roll = Math.floor(Math.random() * 30) + 1;
-      if (roll === 1) {
-        playSpecialEffect('is-light', RAINBOW_IMAGE_SRC);
-        return;
-      }
+      isAvatarAnimating = true;
+      const nextImageSrc = pickAvatarImage();
+      sidebarAvatar.classList.add('is-fading-out');
 
-      if (roll <= 4) {
-        playSpecialEffect('is-dark', GOLD_IMAGE_SRC);
-        return;
-      }
-
-      playAvatarClickFeedback();
+      window.setTimeout(() => {
+        sidebarAvatar.setAttribute('src', nextImageSrc);
+        sidebarAvatar.classList.remove('is-fading-out');
+        isAvatarAnimating = false;
+      }, AVATAR_FADE_DURATION_MS);
     });
   }
   const openButtons = document.querySelectorAll('[data-open-modal]');

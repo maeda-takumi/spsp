@@ -157,6 +157,12 @@ body {
   background: linear-gradient(135deg, #e8f0ff, #bfd7ff);
   padding: 7px;
   cursor: pointer;
+  opacity: 1;
+  transition: opacity 0.36s ease;
+}
+
+.avatar.is-fading-out {
+  opacity: 0;
 }
 
 .avatar.is-shaking {
