@@ -225,6 +225,7 @@
   if (sidebarAvatar) {
     const SPECIAL_OVERLAY_VISIBLE_MS = 1450;
     const AVATAR_SHAKE_MS = 420;
+    const AVATAR_FEEDBACK_MS = 460;
     const RAINBOW_IMAGE_SRC = 'img/human_rainbow.png';
     const GOLD_IMAGE_SRC = 'img/human_gold.png';
     const NORMAL_IMAGE_SRC = 'img/human.png';
@@ -246,6 +247,15 @@
     preloadImage(RAINBOW_IMAGE_SRC);
     preloadImage(GOLD_IMAGE_SRC);
 
+    const playAvatarClickFeedback = () => {
+      sidebarAvatar.classList.remove('is-shaking', 'is-feedback');
+      void sidebarAvatar.offsetHeight;
+      sidebarAvatar.classList.add('is-shaking', 'is-feedback');
+      window.setTimeout(() => {
+        sidebarAvatar.classList.remove('is-shaking', 'is-feedback');
+      }, Math.max(AVATAR_SHAKE_MS, AVATAR_FEEDBACK_MS));
+    };
+
     const playSpecialEffect = (overlayClassName, imageSrc) => {
       specialEffectRunning = true;
       overlay.classList.remove('is-dark', 'is-light', 'is-visible');
@@ -265,6 +275,7 @@
       window.setTimeout(() => {
         sidebarAvatar.setAttribute('src', imageSrc);
         overlay.classList.remove('is-dark', 'is-light');
+        playAvatarClickFeedback();
         specialEffectRunning = false;
       }, SPECIAL_OVERLAY_VISIBLE_MS + 760);
     };
@@ -285,12 +296,7 @@
         return;
       }
 
-      sidebarAvatar.classList.remove('is-shaking');
-      void sidebarAvatar.offsetHeight;
-      sidebarAvatar.classList.add('is-shaking');
-      window.setTimeout(() => {
-        sidebarAvatar.classList.remove('is-shaking');
-      }, AVATAR_SHAKE_MS);
+      playAvatarClickFeedback();
     });
   }
   const openButtons = document.querySelectorAll('[data-open-modal]');
