@@ -222,6 +222,8 @@
   }
 
   const sidebarAvatar = document.querySelector('[data-sidebar-avatar]');
+  const sidebarClickArea = document.querySelector('[data-sidebar-click-area]');
+
   if (sidebarAvatar) {
     const AVATAR_FADE_DURATION_MS = 360;
     const NORMAL_IMAGE_SRC = 'img/human.png';
@@ -239,32 +241,66 @@
     preloadImage(GOLD_IMAGE_SRC);
     preloadImage(RAINBOW_IMAGE_SRC);
 
-    const pickAvatarImage = () => {
-      const roll = Math.random();
-      if (roll < 0.7) {
-        return NORMAL_IMAGE_SRC;
-      }
-      if (roll < 0.9) {
-        return GOLD_IMAGE_SRC;
-      }
-      return RAINBOW_IMAGE_SRC;
+    const playAvatarClickFeedback = () => {
+      sidebarAvatar.classList.remove('is-shaking', 'is-feedback');
+      void sidebarAvatar.offsetHeight;
+      sidebarAvatar.classList.add('is-shaking', 'is-feedback');
+      window.setTimeout(() => {
+        sidebarAvatar.classList.remove('is-shaking', 'is-feedback');
+      }, Math.max(AVATAR_SHAKE_MS, AVATAR_FEEDBACK_MS));
     };
 
-    sidebarAvatar.addEventListener('click', () => {
-      if (isAvatarAnimating) {
+    const playSpecialEffect = (overlayClassName, imageSrc) => {
+      specialEffectRunning = true;
+      overlay.classList.remove('is-dark', 'is-light', 'is-visible');
+      void overlay.offsetHeight;
+      overlay.classList.add(overlayClassName);
+      overlayImage.setAttribute('src', imageSrc);
+      sidebarAvatar.setAttribute('src', NORMAL_IMAGE_SRC);
+
+      window.requestAnimationFrame(() => {
+        overlay.classList.add('is-visible');
+      });
+
+      window.setTimeout(() => {
+        overlay.classList.remove('is-visible');
+      }, SPECIAL_OVERLAY_VISIBLE_MS);
+
+      window.setTimeout(() => {
+        sidebarAvatar.setAttribute('src', imageSrc);
+        overlay.classList.remove('is-dark', 'is-light');
+        playAvatarClickFeedback();
+        specialEffectRunning = false;
+      }, SPECIAL_OVERLAY_VISIBLE_MS + 760);
+    };
+
+    const handleAvatarTrigger = (event) => {
+      if (specialEffectRunning) {
         return;
       }
 
-      isAvatarAnimating = true;
-      const nextImageSrc = pickAvatarImage();
-      sidebarAvatar.classList.add('is-fading-out');
+      if (event.currentTarget === sidebarClickArea && event.target instanceof Element && event.target.closest('button, a, input, textarea, select, label')) {
+        return;
+      }
 
-      window.setTimeout(() => {
-        sidebarAvatar.setAttribute('src', nextImageSrc);
-        sidebarAvatar.classList.remove('is-fading-out');
-        isAvatarAnimating = false;
-      }, AVATAR_FADE_DURATION_MS);
-    });
+      const roll = Math.floor(Math.random() * 30) + 1;
+      if (roll === 1) {
+        playSpecialEffect('is-light', RAINBOW_IMAGE_SRC);
+        return;
+      }
+
+      if (roll <= 4) {
+        playSpecialEffect('is-dark', GOLD_IMAGE_SRC);
+        return;
+      }
+
+      playAvatarClickFeedback();
+    };
+
+    sidebarAvatar.addEventListener('click', handleAvatarTrigger);
+    if (sidebarClickArea) {
+      sidebarClickArea.addEventListener('click', handleAvatarTrigger);
+    }
   }
   const openButtons = document.querySelectorAll('[data-open-modal]');
   if (openButtons.length === 0) {
