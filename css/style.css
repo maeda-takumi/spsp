@@ -147,15 +147,35 @@ body {
 }
 
 .sidebar-avatar-button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 16px;
+  width: 84px;
+  height: 84px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
   cursor: pointer;
+  overflow: hidden;
+}
+
+.sidebar-avatar-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #000;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.sidebar-avatar-button.is-masked::after {
+  opacity: 1;
 }
 
 .avatar {
@@ -167,6 +187,31 @@ body {
   object-fit: cover;
   background: linear-gradient(135deg, #e8f0ff, #bfd7ff);
   padding: 7px;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar-avatar-button.is-masked .avatar {
+  opacity: 0;
+}
+
+.sidebar-avatar-effect {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: auto;
+    /* object-fit: cover; */
+    /* border-radius: 50%; */
+    opacity: 0;
+    transform: scale(0.9);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+    pointer-events: none;
+    z-index: 3;
+    margin: auto;
+}
+
+.sidebar-avatar-button.is-effect-visible .sidebar-avatar-effect {
+  opacity: 1;
+  transform: scale(1);
 }
 
 

@@ -142,22 +142,72 @@
     });
   }
   const sidebarAvatar = document.querySelector('[data-sidebar-avatar]');
+  const sidebarAvatarEffect = document.querySelector('[data-sidebar-avatar-effect]');
   const sidebarAvatarTrigger = document.querySelector('[data-sidebar-avatar-trigger]');
-  if (sidebarAvatar && sidebarAvatarTrigger) {
+  if (sidebarAvatar && sidebarAvatarEffect && sidebarAvatarTrigger) {
     const SIDEBAR_AVATAR_IMAGES = [
-      { src: 'img/human.png', threshold: 0.95 },
-      { src: 'img/human_gold2.png', threshold: 0.995 },
-      { src: 'img/human_rainbow2.png', threshold: 1 },
+      { src: 'img/human.png', threshold: 0.9 },
+      { src: 'img/human_gold.png', threshold: 0.99 },
+      { src: 'img/human_rainbow.png', threshold: 1 },
     ];
+    const AVATAR_EFFECT_SETTINGS = {
+      'img/human.png': [
+        { src: 'img/hazure.png', threshold: 0.7 },
+        { src: 'img/chance.png', threshold: 1 },
+      ],
+      'img/human_gold.png': [
+        { src: 'img/chance.png', threshold: 0.7 },
+        { src: 'img/gekiatsu.png', threshold: 1 },
+      ],
+      'img/human_rainbow.png': [
+        { src: 'img/gekiatsu.png', threshold: 1 },
+      ],
+    };
+    const MASK_DELAY_MS = 220;
+    const EFFECT_DURATION_MS = 540;
+    const UNMASK_DELAY_MS = 180;
+    let isAnimatingAvatar = false;
 
-    const pickSidebarAvatarImage = () => {
+    const pickByThreshold = (options) => {
       const randomValue = Math.random();
-      const selectedImage = SIDEBAR_AVATAR_IMAGES.find((image) => randomValue < image.threshold);
-      return selectedImage ? selectedImage.src : SIDEBAR_AVATAR_IMAGES[0].src;
+      const selectedOption = options.find((option) => randomValue < option.threshold);
+      return selectedOption ? selectedOption.src : options[0].src;
+    };
+
+    const pickSidebarAvatarImage = () => pickByThreshold(SIDEBAR_AVATAR_IMAGES);
+
+    const pickSidebarEffectImage = (avatarSrc) => {
+      const effectOptions = AVATAR_EFFECT_SETTINGS[avatarSrc] || AVATAR_EFFECT_SETTINGS['img/human.png'];
+      return pickByThreshold(effectOptions);
     };
 
     sidebarAvatarTrigger.addEventListener('click', () => {
-      sidebarAvatar.setAttribute('src', pickSidebarAvatarImage());
+      if (isAnimatingAvatar) {
+        return;
+      }
+      isAnimatingAvatar = true;
+
+      const nextAvatarSrc = pickSidebarAvatarImage();
+      const effectImageSrc = pickSidebarEffectImage(nextAvatarSrc);
+
+      sidebarAvatarTrigger.classList.add('is-masked');
+      sidebarAvatarTrigger.classList.remove('is-effect-visible');
+
+      window.setTimeout(() => {
+        sidebarAvatarEffect.setAttribute('src', effectImageSrc);
+        sidebarAvatarTrigger.classList.add('is-effect-visible');
+
+        window.setTimeout(() => {
+          sidebarAvatar.setAttribute('src', nextAvatarSrc);
+          sidebarAvatarTrigger.classList.remove('is-effect-visible');
+
+          window.setTimeout(() => {
+            sidebarAvatarTrigger.classList.remove('is-masked');
+            sidebarAvatarEffect.setAttribute('src', '');
+            isAnimatingAvatar = false;
+          }, UNMASK_DELAY_MS);
+        }, EFFECT_DURATION_MS);
+      }, MASK_DELAY_MS);
     });
   }
   const sectionToggleButtons = document.querySelectorAll('[data-section-toggle]');

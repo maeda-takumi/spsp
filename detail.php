@@ -1057,6 +1057,7 @@ require 'header.php';
   <aside class="side-panel">
     <button type="button" class="sidebar-avatar-button" aria-label="アイコン画像を切り替える" data-sidebar-avatar-trigger>
       <img class="avatar" src="img/human.png" alt="顧客詳細アイコン" loading="lazy" data-sidebar-avatar>
+      <img class="sidebar-avatar-effect" src="" alt="演出" loading="lazy" data-sidebar-avatar-effect aria-hidden="true">
     </button>
     <h1>Customer Detail</h1>
     <p><?= h((string) ($record['line_name'] ?? '名称未設定')); ?></p>
