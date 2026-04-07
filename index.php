@@ -88,15 +88,24 @@ $pdo = db();
 $videoStaffColumn = tableHasColumn($pdo, 'customer_sales_records', 'video_dtaff') ? 'video_dtaff' : 'video_staff';
 
 $hasPendingRequest = false;
+$hasOverduePendingRequest = false;
 if (tableHasColumn($pdo, 'request_management', 'is_completed')) {
     if (tableHasColumn($pdo, 'request_management', 'send_date')) {
         $pendingRequestStmt = $pdo->query(
             'SELECT 1
              FROM request_management
              WHERE is_completed = 0
-               AND DATE(send_date) = CURRENT_DATE()
+               AND DATE(send_date) <= CURRENT_DATE()
              LIMIT 1'
         );
+        $overduePendingRequestStmt = $pdo->query(
+            'SELECT 1
+             FROM request_management
+             WHERE is_completed = 0
+               AND DATE(send_date) < CURRENT_DATE()
+             LIMIT 1'
+        );
+        $hasOverduePendingRequest = (bool) $overduePendingRequestStmt->fetchColumn();
     } else {
         $pendingRequestStmt = $pdo->query('SELECT 1 FROM request_management WHERE is_completed = 0 LIMIT 1');
     }
@@ -179,7 +188,7 @@ require 'header.php';
       <a class="side-nav__request-link" href="request_management.php">
         <span>送付依頼一覧</span>
         <?php if ($hasPendingRequest): ?>
-          <img class="side-nav__alert-icon" src="img/alert.png" alt="未完了の送付依頼あり" loading="lazy">
+          <img class="side-nav__alert-icon" src="<?= $hasOverduePendingRequest ? 'img/dokuro.png' : 'img/alert.png'; ?>" alt="未完了の送付依頼あり" loading="lazy">
         <?php endif; ?>
       </a>
     </nav>
