@@ -222,59 +222,58 @@
   }
 
   const sidebarAvatar = document.querySelector('[data-sidebar-avatar]');
-  const avatarFrame = document.querySelector('[data-sidebar-avatar-frame]');
-  const avatarFlash = document.querySelector('[data-sidebar-avatar-flash]');
-
-  if (sidebarAvatar && avatarFrame && avatarFlash) {
-    const AVATAR_SHAKE_MS = 380;
-    const AVATAR_FEEDBACK_MS = 460;
+  if (sidebarAvatar) {
+    const SPECIAL_OVERLAY_VISIBLE_MS = 1450;
+    const AVATAR_SHAKE_MS = 420;
+    const RAINBOW_IMAGE_SRC = 'img/human_rainbow.png';
+    const GOLD_IMAGE_SRC = 'img/human_gold.png';
     const NORMAL_IMAGE_SRC = 'img/human.png';
-    const GOLD_IMAGE_SRC = 'img/human_gold2.png';
-    const RAINBOW_IMAGE_SRC = 'img/human_rainbow2.png';
     let specialEffectRunning = false;
 
+    const overlay = document.createElement('div');
+    overlay.className = 'avatar-special-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+    const overlayImage = document.createElement('img');
+    overlayImage.alt = '';
+    overlay.appendChild(overlayImage);
+    document.body.appendChild(overlay);
 
     const preloadImage = (src) => {
       const image = new Image();
       image.src = src;
     };
 
-    preloadImage(NORMAL_IMAGE_SRC);
-    preloadImage(GOLD_IMAGE_SRC);
     preloadImage(RAINBOW_IMAGE_SRC);
+    preloadImage(GOLD_IMAGE_SRC);
 
-    const playAvatarClickFeedback = () => {
-      sidebarAvatar.classList.remove('is-shaking', 'is-feedback');
-      void sidebarAvatar.offsetHeight;
-      sidebarAvatar.classList.add('is-shaking', 'is-feedback');
-      window.setTimeout(() => {
-        sidebarAvatar.classList.remove('is-shaking', 'is-feedback');
-      }, Math.max(AVATAR_SHAKE_MS, AVATAR_FEEDBACK_MS));
-    };
-
-    const playFrameFlash = (flashClassName) => {
-      avatarFlash.classList.remove('is-dark', 'is-light', 'is-visible');
-      void avatarFlash.offsetHeight;
-      avatarFlash.classList.add(flashClassName, 'is-visible');
-    };
-
-    const playSpecialEffect = (flashClassName, imageSrc) => {
+    const playSpecialEffect = (overlayClassName, imageSrc) => {
       specialEffectRunning = true;
+      overlay.classList.remove('is-dark', 'is-light', 'is-visible');
+      void overlay.offsetHeight;
+      overlay.classList.add(overlayClassName);
+      overlayImage.setAttribute('src', imageSrc);
       sidebarAvatar.setAttribute('src', NORMAL_IMAGE_SRC);
 
-      playFrameFlash(flashClassName);
+      window.requestAnimationFrame(() => {
+        overlay.classList.add('is-visible');
+      });
+
+      window.setTimeout(() => {
+        overlay.classList.remove('is-visible');
+      }, SPECIAL_OVERLAY_VISIBLE_MS);
 
       window.setTimeout(() => {
         sidebarAvatar.setAttribute('src', imageSrc);
-        playAvatarClickFeedback();
+        overlay.classList.remove('is-dark', 'is-light');
         specialEffectRunning = false;
-      }, 420);
+      }, SPECIAL_OVERLAY_VISIBLE_MS + 760);
     };
 
-    const handleAvatarTrigger = () => {
+    sidebarAvatar.addEventListener('click', () => {
       if (specialEffectRunning) {
         return;
       }
+
       const roll = Math.floor(Math.random() * 30) + 1;
       if (roll === 1) {
         playSpecialEffect('is-light', RAINBOW_IMAGE_SRC);
@@ -286,13 +285,13 @@
         return;
       }
 
-      playAvatarClickFeedback();
-    };
-
-    sidebarAvatar.addEventListener('click', handleAvatarTrigger);
-    if (sidebarClickArea) {
-      sidebarClickArea.addEventListener('click', handleAvatarTrigger);
-    }
+      sidebarAvatar.classList.remove('is-shaking');
+      void sidebarAvatar.offsetHeight;
+      sidebarAvatar.classList.add('is-shaking');
+      window.setTimeout(() => {
+        sidebarAvatar.classList.remove('is-shaking');
+      }, AVATAR_SHAKE_MS);
+    });
   }
   const openButtons = document.querySelectorAll('[data-open-modal]');
   if (openButtons.length === 0) {
