@@ -1053,8 +1053,12 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $importCompletedAt)) 
 require 'header.php';
 ?>
 <div class="glass-board" aria-hidden="true" style="display:none;"></div>
-  <aside class="side-panel" data-sidebar-click-area>
-    <img class="avatar" src="img/human.png" alt="顧客詳細アイコン" loading="lazy" data-sidebar-avatar>
+<div class="dashboard-shell panel dashboard-shell--detail">
+  <aside class="side-panel">
+    <div class="avatar-frame" data-sidebar-avatar-frame>
+      <span class="avatar-frame-flash" aria-hidden="true" data-sidebar-avatar-flash></span>
+      <img class="avatar" src="img/human.png" alt="顧客詳細アイコン" loading="lazy" data-sidebar-avatar>
+    </div>
     <h1>Customer Detail</h1>
     <p><?= h((string) ($record['line_name'] ?? '名称未設定')); ?></p>
 
