@@ -591,7 +591,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $insertMemoStmt = $pdo->prepare('INSERT INTO customer_memo (sheet_id, memo) VALUES (:sheet_id, :memo)');
                 $insertMemoStmt->bindValue(':sheet_id', $sheetIdForMemo, PDO::PARAM_INT);
-                $insertMemoStmt->bindValue(':sheet_id', $sheetIdForMemo);
+                $insertMemoStmt->bindValue(':memo', $memoInput);
                 $insertMemoStmt->execute();
             }
             header('Location: ' . buildDetailUrl(['memo_saved' => '1', 'refresh' => (string) time()], 'customer-memo'));
