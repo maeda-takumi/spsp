@@ -257,6 +257,7 @@ $returnVideoStaff = getOptionalQuery('video_staff');
 $returnSalesStaff = getOptionalQuery('sales_staff');
 $requestManagementId = filter_input(INPUT_GET, 'request_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 $requestManagementId = $requestManagementId !== false && $requestManagementId !== null ? (int) $requestManagementId : null;
+$canSendMail = $returnFrom === 'request_management' && $requestManagementId !== null;
 $indexBackParams = ['page' => $returnPage];
 if ($returnFrom === 'request_management') {
     $indexBackUrl = 'request_management.php?' . http_build_query($indexBackParams);
@@ -654,6 +655,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     } elseif ($action === 'save_email_draft' || $action === 'send_email') {
+        if ($action === 'send_email' && !$canSendMail) {
+            $errors[] = '依頼管理画面から開いた場合のみ送信可能です。';
+        }
         $templateId = (int) ($_POST['email_template_id'] ?? 0);
         $mailTo = trim((string) ($_POST['mail_to'] ?? ''));
         $mailSubject = trim((string) ($_POST['mail_subject'] ?? ''));
@@ -1189,94 +1193,98 @@ require 'header.php';
             </div>
           </div>
           <div id="email-compose-body" class="collapsible-body" hidden>
-            <div class="template-action-row">
-              <button type="button" class="btn btn-icon" data-open-modal="template-editor-modal" aria-label="テンプレート編集">
-                <img src="img/option.png" alt="" loading="lazy">
-              </button>
-            </div>
+            <?php if ($canSendMail): ?>
+              <div class="template-action-row">
+                <button type="button" class="btn btn-icon" data-open-modal="template-editor-modal" aria-label="テンプレート編集">
+                  <img src="img/option.png" alt="" loading="lazy">
+                </button>
+              </div>
 
-            <?php if (isset($_GET['template_saved'])): ?>
-              <p class="notice">テンプレートを保存しました。</p>
-            <?php elseif (isset($_GET['template_deleted'])): ?>
-              <p class="notice">テンプレートを削除しました。</p>
-            <?php elseif (isset($_GET['draft_saved'])): ?>
-              <p class="notice">メール下書きを保存しました。</p>
-            <?php elseif (isset($_GET['mail_sent'])): ?>
-              <p class="notice">メール送信を受け付けました。</p>
-            <?php endif; ?>
+              <?php if (isset($_GET['template_saved'])): ?>
+                <p class="notice">テンプレートを保存しました。</p>
+              <?php elseif (isset($_GET['template_deleted'])): ?>
+                <p class="notice">テンプレートを削除しました。</p>
+              <?php elseif (isset($_GET['draft_saved'])): ?>
+                <p class="notice">メール下書きを保存しました。</p>
+              <?php elseif (isset($_GET['mail_sent'])): ?>
+                <p class="notice">メール送信を受け付けました。</p>
+              <?php endif; ?>
 
-            <?php if ($errors !== [] && ($currentAction === 'save_email_draft' || $currentAction === 'send_email')): ?>
-              <ul class="error-list">
-                <?php foreach ($errors as $error): ?>
-                  <li><?= h($error); ?></li>
-                <?php endforeach; ?>
-              </ul>
-            <?php endif; ?>
-
-            <form method="post" class="email-form" data-email-form enctype="multipart/form-data">
-              <input type="hidden" name="slide_confirmed" value="0" data-slide-confirmed>
-              <div class="field">
-                <label for="email_template_id">テンプレート</label>
-                <select id="email_template_id" name="email_template_id" data-template-select>
-                  <option value="">テンプレートを選択</option>
-                  <?php foreach ($emailTemplates as $template): ?>
-                    <option
-                      value="<?= h((string) $template['id']); ?>"
-                      data-template-subject="<?= h((string) ($template['mail_subject'] ?? '')); ?>"
-                      data-template-body="<?= h((string) ($template['mail_body'] ?? '')); ?>"
-                      <?= $formValues['email_template_id'] === (string) $template['id'] ? 'selected' : ''; ?>
-                    >
-                      <?= h((string) ($template['template_name'] ?? '')); ?>
-                    </option>
+              <?php if ($errors !== [] && ($currentAction === 'save_email_draft' || $currentAction === 'send_email')): ?>
+                <ul class="error-list">
+                  <?php foreach ($errors as $error): ?>
+                    <li><?= h($error); ?></li>
                   <?php endforeach; ?>
-                </select>
-              </div>
-              <div class="field">
-                <label for="mail_to">宛先</label>
-                <input id="mail_to" name="mail_to" type="email" value="<?= h($formValues['mail_to']); ?>" placeholder="example@example.com">
-              </div>
+                </ul>
+              <?php endif; ?>
 
-              <div class="field">
-                <label for="mail_subject">件名</label>
-                <input id="mail_subject" name="mail_subject" type="text" value="<?= h($formValues['mail_subject']); ?>" data-mail-subject>
-              </div>
-
-              <div class="field">
-                <label for="mail_body">本文</label>
-                <textarea id="mail_body" name="mail_body" rows="12" class="mail-body-textarea" data-mail-body><?= h($formValues['mail_body']); ?></textarea>
-              </div>
-              <div class="field attachment-field">
-                <label>添付ファイル</label>
-                <div class="attachment-controls">
-                  <button type="button" class="btn btn-icon" data-attachment-trigger aria-label="添付ファイルを選択">
-                    <img src="img/link.png" alt="" loading="lazy">
-                  </button>
-                  <input id="mail_attachments" name="mail_attachments[]" type="file" multiple hidden data-attachment-input>
-                  <span class="file-meta" data-attachment-meta>未選択</span>
-                </div>
-                <?php if ($existingAttachments !== []): ?>
-                  <ul class="attachment-list">
-                    <?php foreach ($existingAttachments as $attachment): ?>
-                      <li>
-                        <a href="<?= h((string) ($attachment['file_path'] ?? '')); ?>" target="_blank" rel="noopener noreferrer">
-                          <?= h((string) ($attachment['file_name'] ?? '添付ファイル')); ?>
-                        </a>
-                      </li>
+              <form method="post" class="email-form" data-email-form enctype="multipart/form-data">
+                <input type="hidden" name="slide_confirmed" value="0" data-slide-confirmed>
+                <div class="field">
+                  <label for="email_template_id">テンプレート</label>
+                  <select id="email_template_id" name="email_template_id" data-template-select>
+                    <option value="">テンプレートを選択</option>
+                    <?php foreach ($emailTemplates as $template): ?>
+                      <option
+                        value="<?= h((string) $template['id']); ?>"
+                        data-template-subject="<?= h((string) ($template['mail_subject'] ?? '')); ?>"
+                        data-template-body="<?= h((string) ($template['mail_body'] ?? '')); ?>"
+                        <?= $formValues['email_template_id'] === (string) $template['id'] ? 'selected' : ''; ?>
+                      >
+                        <?= h((string) ($template['template_name'] ?? '')); ?>
+                      </option>
                     <?php endforeach; ?>
-                  </ul>
-                <?php endif; ?>
-              </div>
-
-              <div class="actions email-actions">
-                <button class="btn btn-ghost" type="submit" name="action" value="save_email_draft">下書き保存</button>
-              </div>
-              <div class="swipe-send" data-swipe-send>
-                <div class="swipe-send-track">
-                  <span class="swipe-send-label">→ 右にスワイプして送信</span>
-                  <button type="button" class="swipe-send-thumb" aria-label="送信スライダー" data-swipe-thumb>送信</button>
+                  </select>
                 </div>
-              </div>
-            </form>
+                <div class="field">
+                  <label for="mail_to">宛先</label>
+                  <input id="mail_to" name="mail_to" type="email" value="<?= h($formValues['mail_to']); ?>" placeholder="example@example.com">
+                </div>
+
+                <div class="field">
+                  <label for="mail_subject">件名</label>
+                  <input id="mail_subject" name="mail_subject" type="text" value="<?= h($formValues['mail_subject']); ?>" data-mail-subject>
+                </div>
+
+                <div class="field">
+                  <label for="mail_body">本文</label>
+                  <textarea id="mail_body" name="mail_body" rows="12" class="mail-body-textarea" data-mail-body><?= h($formValues['mail_body']); ?></textarea>
+                </div>
+                <div class="field attachment-field">
+                  <label>添付ファイル</label>
+                  <div class="attachment-controls">
+                    <button type="button" class="btn btn-icon" data-attachment-trigger aria-label="添付ファイルを選択">
+                      <img src="img/link.png" alt="" loading="lazy">
+                    </button>
+                    <input id="mail_attachments" name="mail_attachments[]" type="file" multiple hidden data-attachment-input>
+                    <span class="file-meta" data-attachment-meta>未選択</span>
+                  </div>
+                  <?php if ($existingAttachments !== []): ?>
+                    <ul class="attachment-list">
+                      <?php foreach ($existingAttachments as $attachment): ?>
+                        <li>
+                          <a href="<?= h((string) ($attachment['file_path'] ?? '')); ?>" target="_blank" rel="noopener noreferrer">
+                            <?= h((string) ($attachment['file_name'] ?? '添付ファイル')); ?>
+                          </a>
+                        </li>
+                      <?php endforeach; ?>
+                    </ul>
+                  <?php endif; ?>
+                </div>
+
+                <div class="actions email-actions">
+                  <button class="btn btn-ghost" type="submit" name="action" value="save_email_draft">下書き保存</button>
+                </div>
+                <div class="swipe-send" data-swipe-send>
+                  <div class="swipe-send-track">
+                    <span class="swipe-send-label">→ 右にスワイプして送信</span>
+                    <button type="button" class="swipe-send-thumb" aria-label="送信スライダー" data-swipe-thumb>送信</button>
+                  </div>
+                </div>
+              </form>
+            <?php else: ?>
+              <p class="notice">依頼管理画面から開いた場合のみ送信可能です。</p>
+            <?php endif; ?>
           </div>
         </section>
 
