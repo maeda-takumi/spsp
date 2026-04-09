@@ -265,15 +265,14 @@ require 'header.php';
           <?php foreach ($rows as $row): ?>
             <?php $rowSheetId = (string) ($row['rm__sheet_id'] ?? ''); ?>
             <?php $isCompletedRow = isset($row['rm__is_completed']) && (int) $row['rm__is_completed'] === 1; ?>
-            <tr class="<?= $isCompletedRow ? 'table-row--completed' : ''; ?>">
             <?php $isTodaySendDateRow = isTodayDate((string) ($row['rm__send_date'] ?? '')); ?>
             <?php
             $rowClasses = [];
-            if ($isCompletedRow) {
-                $rowClasses[] = 'table-row--completed';
-            }
             if ($isTodaySendDateRow) {
                 $rowClasses[] = 'table-row--today-send';
+            }
+            if ($isCompletedRow) {
+                $rowClasses[] = 'table-row--completed';
             }
             ?>
             <tr class="<?= h(implode(' ', $rowClasses)); ?>">
