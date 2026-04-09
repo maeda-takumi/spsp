@@ -271,9 +271,9 @@ require 'header.php';
                   <?php endif; ?>
                 </td>
               <?php endforeach; ?>
-              <td data-label="LINE名"><?= h((string) ($row['csr_line_name'] ?? '')); ?></td>
+              <td data-label="LINE名" class="cell-inline-scroll cell-inline-scroll--line"><?= h((string) ($row['csr_line_name'] ?? '')); ?></td>
               <td data-label="本名"><?= h((string) ($row['csr_full_name'] ?? '')); ?></td>
-              <td data-label="メールアドレス"><?= h((string) ($row['csr_email'] ?? '')); ?></td>
+              <td data-label="メールアドレス" class="cell-inline-scroll cell-inline-scroll--email"><?= h((string) ($row['csr_email'] ?? '')); ?></td>
               <!-- <td data-label="演者名"><?= h((string) ($row['csr_video_staff'] ?? '')); ?></td>
               <td data-label="セールス名"><?= h((string) ($row['csr_sales_staff'] ?? '')); ?></td> -->
               <td data-label="操作">
