@@ -65,6 +65,22 @@ function formatDisplayDate(string $value): string
         return $value;
     }
 }
+function isTodayDate(string $value): bool
+{
+    $trimmed = trim($value);
+    if ($trimmed === '') {
+        return false;
+    }
+
+    try {
+        $date = new DateTimeImmutable($trimmed);
+    } catch (Throwable $e) {
+        return false;
+    }
+
+    $today = new DateTimeImmutable('today');
+    return $date->format('Y-m-d') === $today->format('Y-m-d');
+}
 $pdo = db();
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 20;
@@ -72,6 +88,7 @@ $offset = ($page - 1) * $perPage;
 $sheetId = getQuery('sheet_id');
 $name = getQuery('name');
 $status = getQuery('status');
+$status = array_key_exists('status', $_GET) ? getQuery('status') : '0';
 
 $rmExistsStmt = $pdo->prepare(
     'SELECT 1
@@ -249,6 +266,17 @@ require 'header.php';
             <?php $rowSheetId = (string) ($row['rm__sheet_id'] ?? ''); ?>
             <?php $isCompletedRow = isset($row['rm__is_completed']) && (int) $row['rm__is_completed'] === 1; ?>
             <tr class="<?= $isCompletedRow ? 'table-row--completed' : ''; ?>">
+            <?php $isTodaySendDateRow = isTodayDate((string) ($row['rm__send_date'] ?? '')); ?>
+            <?php
+            $rowClasses = [];
+            if ($isCompletedRow) {
+                $rowClasses[] = 'table-row--completed';
+            }
+            if ($isTodaySendDateRow) {
+                $rowClasses[] = 'table-row--today-send';
+            }
+            ?>
+            <tr class="<?= h(implode(' ', $rowClasses)); ?>">
               <?php foreach ($visibleRmColumns as $column): ?>
                 <?php
                 $rawValue = (string) ($row['rm__' . $column] ?? '');
