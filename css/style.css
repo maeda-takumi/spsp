@@ -636,10 +636,11 @@ body {
 }
 
 .table-row--today-send {
-  position: relative;
-  isolation: isolate;
-  background: #faf5ff;
-  border: 1px solid #d8b4fe;
+    position: relative;
+    isolation: isolate;
+    background: #ede1f9;
+    border-left: 2px solid #d8b4fe;
+    border-right: 2px solid #d8b4fe;
 }
 
 .table-row--today-send td {

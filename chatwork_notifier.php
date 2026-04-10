@@ -62,7 +62,7 @@ function renderChatworkMessageTemplate(string $template, array $context, array $
             return $actorDisplayName;
         }
 
-        if ($key === 'video_staff' && ($lookupName === 'しらほしなつみ' || $lookupName === '坂口亮' || $lookupName === '三木悠斗')) {
+        if ($key === 'video_staff' && ($lookupName === 'しらほしなつみ' || $lookupName === '坂口亮' || $lookupName === '三木悠斗' || $lookupName === '蝦名真人')) {
             return '';
         }
         $mentionCandidates = $mentionMastersByName[$lookupName] ?? [];
