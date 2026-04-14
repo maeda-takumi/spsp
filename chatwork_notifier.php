@@ -62,10 +62,16 @@ function renderChatworkMessageTemplate(string $template, array $context, array $
             return $actorDisplayName;
         }
 
-        if ($key === 'video_staff' && ($lookupName === 'しらほしなつみ' || $lookupName === '坂口亮' || $lookupName === '三木悠斗' || $lookupName === '蝦名真人')) {
-            return '';
-        }
+        // if ($key === 'video_staff' && ($lookupName === 'しらほしなつみ' || $lookupName === '坂口亮' || $lookupName === '三木悠斗' || $lookupName === '蝦名真人')) {
+        //     return '';
+        // }
+        // if ($key === 'sales_staff' && $lookupName === '蝦名真人') {
+        //     return '';
+        // }
         $mentionCandidates = $mentionMastersByName[$lookupName] ?? [];
+        if (count($mentionCandidates) === 0) {
+            return $lookupName;
+        }
         if (count($mentionCandidates) !== 1) {
             throw new RuntimeException(sprintf('mention[%s] の参照値「%s」に一致するメンション先が%s件です。', $key, $lookupName, count($mentionCandidates)));
         }

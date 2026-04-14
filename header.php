@@ -28,6 +28,9 @@ $importCompletedAt = isset($importCompletedAt) && is_string($importCompletedAt) 
 <main class="page-wrap">
     <header class="app-header panel">
         <div class="app-header-tools">
+            <a class="btn btn-icon" href="help/index.php" aria-label="ヘルプを開く">
+                <img src="img/help.png" alt="" loading="lazy">
+            </a>
             <span class="import-completed-at" data-import-completed-at>
                 <?= $importCompletedAt !== '' ? '最終取込: ' . htmlspecialchars($importCompletedAt, ENT_QUOTES, 'UTF-8') : '最終取込: 未実行'; ?>
             </span>
