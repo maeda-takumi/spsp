@@ -1552,3 +1552,94 @@ audio {
 .help-steps li + li {
   margin-top: 8px;
 }
+.mail-error-body {
+  margin: 0;
+  /* background: #eef4ff; */
+  color: #1a2f57;
+  font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif;
+  line-height: 1.7;
+}
+
+.mail-error-container {
+  /* max-width: 980px; */
+  margin: 0 auto;
+  /* padding: 28px 16px 40px; */
+}
+
+.mail-error-card {
+  background: #fff;
+  border: 1px solid #d7e4ff;
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(19, 57, 130, 0.12);
+  padding: 24px 22px;
+}
+
+.mail-error-title {
+  margin: 0;
+  color: #173da5;
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+  line-height: 1.35;
+}
+
+.mail-error-lead {
+  margin: 12px 0 0;
+  font-size: 1rem;
+  color: #264172;
+  font-weight: 600;
+}
+
+.mail-error-steps {
+  margin: 18px 0 0;
+  padding-left: 1.4em;
+  display: grid;
+  gap: 30px;
+}
+
+.mail-error-step {
+  background: #f7faff78;;
+  border: 1px solid #dbe8ff;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.mail-error-step::marker {
+  color: #173da5;
+  font-weight: 700;
+}
+
+.mail-error-step-text {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.mail-error-step a {
+  color: #1346c2;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.mail-error-image {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  margin-top: 10px;
+  border: 1px solid #cfddfa;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(16, 49, 117, 0.14);
+  background: #fff;
+}
+
+@media (max-width: 640px) {
+  .mail-error-container {
+    padding: 18px 10px 28px;
+  }
+
+  .mail-error-card {
+    padding: 18px 14px;
+  }
+
+  .mail-error-steps {
+    padding-left: 1.2em;
+    gap: 10px;
+  }
+}
