@@ -81,6 +81,7 @@ function ensureRequestManagementTable(PDO $pdo): void
             sheet_id BIGINT NOT NULL,
             document_type VARCHAR(255) NOT NULL,
             request_type VARCHAR(255) NOT NULL,
+            curriculum_type VARCHAR(255) NOT NULL DEFAULT "",
             send_date DATE NULL,
             memo TEXT NULL,
             is_completed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -104,6 +105,14 @@ function ensureRequestManagementTable(PDO $pdo): void
 
     if (!$columnCheckStmt->fetchColumn()) {
         $pdo->exec('ALTER TABLE request_management ADD COLUMN request_type VARCHAR(255) NOT NULL AFTER document_type');
+    }
+    $columnCheckStmt->bindValue(':schema', DB_NAME);
+    $columnCheckStmt->bindValue(':table_name', 'request_management');
+    $columnCheckStmt->bindValue(':column_name', 'curriculum_type');
+    $columnCheckStmt->execute();
+
+    if (!$columnCheckStmt->fetchColumn()) {
+        $pdo->exec('ALTER TABLE request_management ADD COLUMN curriculum_type VARCHAR(255) NOT NULL DEFAULT "" AFTER request_type');
     }
     $columnCheckStmt->bindValue(':schema', DB_NAME);
     $columnCheckStmt->bindValue(':table_name', 'request_management');
@@ -131,6 +140,7 @@ $input = parseInput();
 $sheetId = normalizeField($input, 'sheet_id');
 $documentType = normalizeField($input, 'document_type');
 $requestType = normalizeField($input, 'request_type');
+$curriculumType = normalizeField($input, 'curriculum_type');
 $sendDate = normalizeField($input, 'send_date');
 $memo = normalizeField($input, 'memo');
 
@@ -147,12 +157,13 @@ try {
     ensureRequestManagementTable($pdo);
 
     $stmt = $pdo->prepare(
-        'INSERT INTO request_management (sheet_id, document_type, request_type, send_date, memo)
-         VALUES (:sheet_id, :document_type, :request_type, :send_date, :memo)'
+        'INSERT INTO request_management (sheet_id, document_type, request_type, curriculum_type, send_date, memo)
+         VALUES (:sheet_id, :document_type, :request_type, :curriculum_type, :send_date, :memo)'
     );
     $stmt->bindValue(':sheet_id', (int) $sheetId, PDO::PARAM_INT);
     $stmt->bindValue(':document_type', $documentType);
     $stmt->bindValue(':request_type', $requestType);
+    $stmt->bindValue(':curriculum_type', $curriculumType);
     $stmt->bindValue(':send_date', $sendDate === '' ? null : $sendDate, $sendDate === '' ? PDO::PARAM_NULL : PDO::PARAM_STR);
     $stmt->bindValue(':memo', $memo);
     $stmt->execute();
