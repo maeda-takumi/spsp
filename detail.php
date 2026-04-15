@@ -364,12 +364,16 @@ if ($requestManagementId !== null && tableExists($pdo, 'request_management')) {
     if ($hasRequiredColumns) {
         $hasRequestManagementMemoColumn = tableHasColumn($pdo, 'request_management', 'memo');
         $hasRequestManagementSendDateColumn = tableHasColumn($pdo, 'request_management', 'send_date');
+        $hasRequestManagementCurriculumTypeColumn = tableHasColumn($pdo, 'request_management', 'curriculum_type');
         $requestManagementSelectColumns = 'id, sheet_id, request_type, document_type, is_completed, created_at';
         if ($hasRequestManagementSendDateColumn) {
             $requestManagementSelectColumns .= ', send_date';
         }
         if ($hasRequestManagementMemoColumn) {
             $requestManagementSelectColumns .= ', memo';
+        }
+        if ($hasRequestManagementCurriculumTypeColumn) {
+            $requestManagementSelectColumns .= ', curriculum_type';
         }
         $requestManagementStmt = $pdo->prepare(
             'SELECT ' . $requestManagementSelectColumns . '
@@ -1134,6 +1138,7 @@ require 'header.php';
               $sendDate = $timestamp !== false ? date('Y/m/d', $timestamp) : (string) preg_replace('/\s.+$/', '', $sendRawDate);
           }
           $requestSummaryMemo = trim((string) preg_replace('/\s+/u', ' ', (string) ($requestManagementInfo['memo'] ?? '')));
+          $requestSummaryCurriculumType = trim((string) ($requestManagementInfo['curriculum_type'] ?? ''));
           if ($requestSummaryMemo === '') {
               $requestSummaryMemo = trim((string) preg_replace('/\s+/u', ' ', $memoValue));
           }
@@ -1148,6 +1153,8 @@ require 'header.php';
             <div class="request-management-summary-memo">
               <span class="meta-label">memo</span>
               <strong><?= h($requestSummaryMemo !== '' ? $requestSummaryMemo : '（未入力）'); ?></strong>
+              <span class="meta-label">type</span>
+              <strong><?= h($requestSummaryCurriculumType !== '' ? $requestSummaryCurriculumType : '（未設定）'); ?></strong>
             </div>
           </div>
         <?php else: ?>

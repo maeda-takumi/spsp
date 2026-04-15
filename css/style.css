@@ -231,7 +231,7 @@ body {
   letter-spacing: 0.02em;
 }
 .side-nav {
-  margin-top: 24px;
+  margin-top: 10px;
   display: grid;
   gap: 8px;
 }
@@ -703,6 +703,13 @@ body {
   border-color: #bbf7d0;
 }
 
+
+.badge--curriculum {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  font-weight: 600;
+}
 
 .pagination {
   display: flex;
@@ -1392,7 +1399,7 @@ audio {
   }
 
   .dashboard-shell--detail .side-nav {
-    margin-top: 14px;
+    margin-top: 10px;
   }
 
   .dashboard-shell--detail .memo-panel {
@@ -1642,4 +1649,16 @@ audio {
     padding-left: 1.2em;
     gap: 10px;
   }
+}
+
+.side-nav__app-link{
+  position: relative;
+}
+.side-nav__app-link img {
+    position: absolute;
+    width: 27px;
+    height: auto;
+    margin: auto 0px;
+    right: 10px;
+    top: 8px;
 }

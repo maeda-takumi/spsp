@@ -183,7 +183,7 @@ require 'header.php';
   <aside class="side-panel side-panel--customer">
     <!-- <img class="avatar" src="img/neo.png" alt="担当者アイコン" loading="lazy"> -->
     <h1>SUP-SUP NEO</h1>
-    <p>LINKS</p>
+    <p>PAGES</p>
     <nav class="side-nav" aria-label="メニュー">
       <a class="side-nav__request-link" href="request_management.php">
         <span>送付依頼一覧</span>
@@ -191,6 +191,27 @@ require 'header.php';
           <img class="side-nav__alert-icon" src="<?= $hasOverduePendingRequest ? 'img/dokuro.png' : 'img/alert.png'; ?>" alt="未完了の送付依頼あり" loading="lazy">
         <?php endif; ?>
       </a>
+      <p>Application</p>
+      <div class="side-nav__app-link">
+        <a href="https://totalappworks.com/support_aori/" target="_blank" rel="noopener noreferrer">Bull-Fight</a>
+        <img src="img/aori.png" alt="Bull-Fight" loading="lazy">
+      </div>
+      <div class="side-nav__app-link">
+        <a href="https://totalappworks.com/support_support/curriculum_answers_list.php" target="_blank" rel="noopener noreferrer">フィードバック</a>
+        <img src="img/fb.png" alt="フィードバック" loading="lazy">
+      </div>
+      <div class="side-nav__app-link">
+        <a href="http://schoolai.biz/curriculum/login/admin.php" target="_blank" rel="noopener noreferrer">カリキュラム管理</a>
+        <img src="img/user.png" alt="カリキュラム管理" loading="lazy">
+      </div>
+      <div class="side-nav__app-link">
+        <a href="https://step.lme.jp/basic/chat-v3?lastTimeUpdateFriend=0" target="_blank" rel="noopener noreferrer">LMessage</a>
+        <img src="img/lme.png" alt="LMessage" loading="lazy">
+      </div>
+      <div class="side-nav__app-link">
+        <a href="https://docs.google.com/document/d/1Cq5sYRV-Ppj4r-ld_y-5OfLGeHSKmM2qAikmW2LPYJk/edit?tab=t.5bcbhp93fbnt" target="_blank" rel="noopener noreferrer">LMessage</a>
+        <img src="img/doc.png" alt="フローマニュアル" loading="lazy">
+      </div>
     </nav>
   </aside>
 
