@@ -222,7 +222,7 @@ require 'header.php';
         <img src="img/lme.png" alt="LMessage" loading="lazy">
       </div>
       <div class="side-nav__app-link">
-        <a href="https://docs.google.com/document/d/1Cq5sYRV-Ppj4r-ld_y-5OfLGeHSKmM2qAikmW2LPYJk/edit?tab=t.5bcbhp93fbnt" target="_blank" rel="noopener noreferrer">LMessage</a>
+        <a href="https://docs.google.com/document/d/1Cq5sYRV-Ppj4r-ld_y-5OfLGeHSKmM2qAikmW2LPYJk/edit?tab=t.5bcbhp93fbnt" target="_blank" rel="noopener noreferrer">フローマニュアル</a>
         <img src="img/doc.png" alt="フローマニュアル" loading="lazy">
       </div>
 
