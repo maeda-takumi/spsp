@@ -325,6 +325,7 @@ require 'header.php';
                         data-request-id="<?= h($requestId); ?>"
                         data-sheet-id="<?= h($rowSheetId); ?>"
                         data-memo-value="<?= h($rawValue); ?>"
+                        data-memo-value-b64="<?= h(base64_encode($rawValue)); ?>"
                       ><?= nl2br(h($rawValue !== '' ? $rawValue : 'メモを入力')); ?></button>
                     <?php else: ?>
                       <div class="memo-cell-scroll"><?= nl2br(h($rawValue)); ?></div>

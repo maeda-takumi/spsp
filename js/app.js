@@ -315,6 +315,19 @@
       .replaceAll('\'', '&#039;')
       .replaceAll('\n', '<br>');
   };
+  const decodeBase64Utf8 = (value) => {
+    if (!value) {
+      return '';
+    }
+
+    try {
+      const binary = window.atob(value);
+      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+      return new TextDecoder().decode(bytes);
+    } catch (error) {
+      return '';
+    }
+  };
 
   if (memoModalSaveButton && memoModalInput && memoModal) {
     memoModalSaveButton.addEventListener('click', async () => {
@@ -493,7 +506,8 @@
       if (modalId === 'request-memo-modal') {
         currentMemoTarget = button;
         if (memoModalInput) {
-          memoModalInput.value = button.getAttribute('data-memo-value') || '';
+          const base64Memo = button.getAttribute('data-memo-value-b64') || '';
+          memoModalInput.value = decodeBase64Utf8(base64Memo) || button.getAttribute('data-memo-value') || '';
         }
         if (memoModalMeta) {
           const sheetId = button.getAttribute('data-sheet-id') || '-';
