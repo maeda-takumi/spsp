@@ -12,9 +12,9 @@ $importCompletedAt = isset($importCompletedAt) && is_string($importCompletedAt) 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8'); ?></title>
-    <link rel="icon" type="image/png" href="img/icon2.png">
-    <link rel="shortcut icon" type="image/png" href="img/icon2.png">
-    <link rel="apple-touch-icon" href="img/icon2.png">
+    <link rel="icon" type="image/png" href="img/icon3.png">
+    <link rel="shortcut icon" type="image/png" href="img/icon3.png">
+    <link rel="apple-touch-icon" href="img/icon3.png">
     <link rel="stylesheet" href="css/style.css?v=<?= time(); ?>">
 </head>
 <body>
