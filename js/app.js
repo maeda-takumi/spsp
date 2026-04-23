@@ -295,6 +295,74 @@
     return;
   }
 
+  const memoModal = document.getElementById('request-memo-modal');
+  const memoModalInput = memoModal ? memoModal.querySelector('[data-memo-modal-input]') : null;
+  const memoModalMeta = memoModal ? memoModal.querySelector('[data-memo-modal-meta]') : null;
+  const memoModalError = memoModal ? memoModal.querySelector('[data-memo-modal-error]') : null;
+  const memoModalSaveButton = memoModal ? memoModal.querySelector('[data-memo-modal-save]') : null;
+  let currentMemoTarget = null;
+
+  const memoToHtml = (text) => {
+    if (!text) {
+      return 'メモを入力';
+    }
+
+    return text
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll('\'', '&#039;')
+      .replaceAll('\n', '<br>');
+  };
+
+  if (memoModalSaveButton && memoModalInput && memoModal) {
+    memoModalSaveButton.addEventListener('click', async () => {
+      if (!currentMemoTarget) {
+        return;
+      }
+
+      const requestId = currentMemoTarget.getAttribute('data-request-id') || '';
+      if (!requestId) {
+        return;
+      }
+
+      memoModalSaveButton.disabled = true;
+      if (memoModalError) {
+        memoModalError.hidden = true;
+        memoModalError.textContent = '';
+      }
+
+      try {
+        const response = await fetch('api/request_management_memo_update_api.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: requestId,
+            memo: memoModalInput.value,
+          }),
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.ok) {
+          throw new Error(result.message || 'メモの保存に失敗しました。');
+        }
+
+        currentMemoTarget.setAttribute('data-memo-value', result.memo || '');
+        currentMemoTarget.innerHTML = memoToHtml(result.memo || '');
+        memoModal.hidden = true;
+      } catch (error) {
+        if (memoModalError) {
+          memoModalError.textContent = error instanceof Error ? error.message : 'メモの保存に失敗しました。';
+          memoModalError.hidden = false;
+        }
+      } finally {
+        memoModalSaveButton.disabled = false;
+      }
+    });
+  }
   const closeModal = (modal) => {
     if (!modal) {
       return;
@@ -420,6 +488,20 @@
             }
             formNode.submit();
           };
+        }
+      }
+      if (modalId === 'request-memo-modal') {
+        currentMemoTarget = button;
+        if (memoModalInput) {
+          memoModalInput.value = button.getAttribute('data-memo-value') || '';
+        }
+        if (memoModalMeta) {
+          const sheetId = button.getAttribute('data-sheet-id') || '-';
+          memoModalMeta.textContent = `シートID: ${sheetId}`;
+        }
+        if (memoModalError) {
+          memoModalError.hidden = true;
+          memoModalError.textContent = '';
         }
       }
       modal.hidden = false;

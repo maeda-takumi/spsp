@@ -602,6 +602,45 @@ body {
   scrollbar-color: #c3cee0 transparent;
 }
 
+.memo-cell-button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #dbe6fb;
+  border-radius: 10px;
+  background: #f8fbff;
+  color: inherit;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.memo-cell-button:hover {
+  background: #eef5ff;
+}
+
+.memo-modal-dialog {
+  width: min(680px, 100%);
+}
+
+.memo-modal-meta {
+  margin: 6px 0 10px;
+}
+
+.memo-modal-textarea {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  border: 1px solid #d2e1fe;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.memo-modal-actions {
+  justify-content: flex-end;
+}
 .memo-cell-scroll::-webkit-scrollbar {
   width: 6px;
 }

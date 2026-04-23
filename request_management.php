@@ -315,7 +315,20 @@ require 'header.php';
                       <span class="meta">-</span>
                     <?php endif; ?>
                   <?php elseif ($column === 'memo'): ?>
-                    <div class="memo-cell-scroll"><?= nl2br(h($rawValue)); ?></div>
+                    <?php $requestId = (string) ($row['rm__id'] ?? ''); ?>
+                    <?php if ($requestId !== ''): ?>
+                      <button
+                        type="button"
+                        class="memo-cell-scroll memo-cell-button"
+                        data-open-modal="request-memo-modal"
+                        data-memo-edit-trigger
+                        data-request-id="<?= h($requestId); ?>"
+                        data-sheet-id="<?= h($rowSheetId); ?>"
+                        data-memo-value="<?= h($rawValue); ?>"
+                      ><?= nl2br(h($rawValue !== '' ? $rawValue : 'メモを入力')); ?></button>
+                    <?php else: ?>
+                      <div class="memo-cell-scroll"><?= nl2br(h($rawValue)); ?></div>
+                    <?php endif; ?>
                   <?php else: ?>
                     <?= h($rawValue); ?>
                   <?php endif; ?>
@@ -363,5 +376,20 @@ require 'header.php';
       <?php endif; ?>
     </section>
   </section>
+</div>
+<div class="modal" id="request-memo-modal" hidden>
+  <div class="panel modal-dialog memo-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="request-memo-title">
+    <h2 id="request-memo-title">メモ編集</h2>
+    <p class="meta memo-modal-meta" data-memo-modal-meta></p>
+    <div class="field">
+      <label for="request-memo-textarea">メモ</label>
+      <textarea id="request-memo-textarea" class="memo-modal-textarea" data-memo-modal-input></textarea>
+    </div>
+    <p class="error" data-memo-modal-error hidden></p>
+    <div class="actions memo-modal-actions">
+      <button type="button" class="btn btn-primary" data-memo-modal-save>保存</button>
+      <button type="button" class="btn btn-ghost" data-close-modal>キャンセル</button>
+    </div>
+  </div>
 </div>
 <?php require 'footer.php'; ?>
