@@ -257,7 +257,7 @@ $returnVideoStaff = getOptionalQuery('video_staff');
 $returnSalesStaff = getOptionalQuery('sales_staff');
 $requestManagementId = filter_input(INPUT_GET, 'request_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 $requestManagementId = $requestManagementId !== false && $requestManagementId !== null ? (int) $requestManagementId : null;
-$canSendMail = $returnFrom === 'request_management' && $requestManagementId !== null;
+$canSendMail = true;
 $indexBackParams = ['page' => $returnPage];
 if ($returnFrom === 'request_management') {
     $indexBackUrl = 'request_management.php?' . http_build_query($indexBackParams);

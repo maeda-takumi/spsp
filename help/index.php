@@ -11,6 +11,9 @@ require __DIR__ . '/header.php';
         <li>
             <a href="mail_error.php">メール送信に失敗しました。Token has been expired or revoked.</a>
         </li>
+        <li>
+            <a href="send_stop.php">メール送付通知を止めたい時</a>
+        </li>
     </ul>
 </section>
 </main>

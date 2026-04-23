@@ -17,7 +17,7 @@
         </li>
         <li class="mail-error-step">
           <p class="mail-error-step-text">
-            <a href="https://totalappworks.com/supsup_neo/oauth_gmail_token.php" target="_blank" rel="noopener noreferrer">https://totalappworks.com/supsup_neo/oauth_gmail_token.php</a>へアクセス
+            ①でログインしたGoogleアカウントで <a href="https://totalappworks.com/supsup_neo/oauth_gmail_token.php" target="_blank" rel="noopener noreferrer">https://totalappworks.com/supsup_neo/oauth_gmail_token.php</a> へアクセス
           </p>
         </li>
         <li class="mail-error-step">

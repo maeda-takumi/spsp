@@ -55,7 +55,7 @@ body {
 .page-wrap {
   position: relative;
   z-index: 1;
-  max-width: 1680px;
+  /* max-width: 1680px; */
   /* max-width: 1240px; */
   margin: 20px auto;
   padding: 0 20px 36px;
