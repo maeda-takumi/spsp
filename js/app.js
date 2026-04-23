@@ -328,6 +328,22 @@
       return '';
     }
   };
+  const encodeBase64Utf8 = (value) => {
+    if (!value) {
+      return '';
+    }
+
+    try {
+      const bytes = new TextEncoder().encode(value);
+      let binary = '';
+      bytes.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+      });
+      return window.btoa(binary);
+    } catch (error) {
+      return '';
+    }
+  };
 
   if (memoModalSaveButton && memoModalInput && memoModal) {
     memoModalSaveButton.addEventListener('click', async () => {
@@ -363,8 +379,10 @@
           throw new Error(result.message || 'メモの保存に失敗しました。');
         }
 
-        currentMemoTarget.setAttribute('data-memo-value', result.memo || '');
-        currentMemoTarget.innerHTML = memoToHtml(result.memo || '');
+        const savedMemo = result.memo || '';
+        currentMemoTarget.setAttribute('data-memo-value', savedMemo);
+        currentMemoTarget.setAttribute('data-memo-value-b64', encodeBase64Utf8(savedMemo));
+        currentMemoTarget.innerHTML = memoToHtml(savedMemo);
         memoModal.hidden = true;
       } catch (error) {
         if (memoModalError) {

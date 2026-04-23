@@ -489,8 +489,8 @@ body {
 .field label {
   display: block;
   margin-bottom: 6px;
-  font-size: 0.82rem;
-  color: var(--muted);
+  font-size: 16px ;
+  color: #2e4067;
 }
 
 .field input,
@@ -759,8 +759,8 @@ body {
 
 .meta {
   margin-left: auto;
-  color: var(--muted);
-  font-size: 0.85rem;
+  color: #2e4067;
+  font-size: 16px;
 }
 
 .empty {
@@ -1108,6 +1108,7 @@ body {
   padding: 18px;
   max-height: calc(100vh - 40px);
   overflow-y: auto;
+    background: rgb(207 216 237 / 54%);
 }
 
 .writing-detail {
