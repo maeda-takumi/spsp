@@ -205,6 +205,10 @@ require 'header.php';
         <img src="img/user.png" alt="カリキュラム管理" loading="lazy">
       </div>
       <div class="side-nav__app-link">
+        <a href="https://totalappworks.com/chatwork/" target="_blank" rel="noopener noreferrer">ChatSave</a>
+        <img src="img/chatsave.png" alt="ChatSave" loading="lazy">
+      </div>
+      <div class="side-nav__app-link">
         <a href="https://step.lme.jp/basic/chat-v3?lastTimeUpdateFriend=0" target="_blank" rel="noopener noreferrer">LMessage</a>
         <img src="img/lme.png" alt="LMessage" loading="lazy">
       </div>
