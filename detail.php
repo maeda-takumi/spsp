@@ -564,6 +564,11 @@ $formValues = [
 ];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? 'create');
+    $deleteAttachmentPrefix = 'delete_email_attachment:';
+    if (str_starts_with($action, $deleteAttachmentPrefix)) {
+        $_POST['attachment_id'] = substr($action, strlen($deleteAttachmentPrefix));
+        $action = 'delete_email_attachment';
+    }
     $writingId = (int) ($_POST['writing_id'] ?? 0);
     $writing = trim((string) ($_POST['writing'] ?? ''));
     $writingNotes = trim((string) ($_POST['writing_notes'] ?? ''));
@@ -657,6 +662,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit;
                 }
             }
+        }
+    } elseif ($action === 'delete_email_attachment') {
+        $attachmentId = (int) ($_POST['attachment_id'] ?? 0);
+        if ($attachmentId <= 0) {
+            $errors[] = '削除対象の添付ファイルが不正です。';
+        } else {
+            $attachmentTargetStmt = $pdo->prepare(
+                'SELECT id, file_path
+                 FROM customer_sales_record_email_attachments
+                 WHERE id = :id AND customer_sales_record_id = :record_id
+                 LIMIT 1'
+            );
+            $attachmentTargetStmt->bindValue(':id', $attachmentId, PDO::PARAM_INT);
+            $attachmentTargetStmt->bindValue(':record_id', $recordSheetId);
+            $attachmentTargetStmt->execute();
+            $attachmentTarget = $attachmentTargetStmt->fetch();
+
+            if (!$attachmentTarget) {
+                $errors[] = '対象の添付ファイルが見つかりません。';
+            } else {
+                $filePath = (string) ($attachmentTarget['file_path'] ?? '');
+                $deleteAttachmentStmt = $pdo->prepare(
+                    'DELETE FROM customer_sales_record_email_attachments
+                     WHERE id = :id AND customer_sales_record_id = :record_id'
+                );
+                $deleteAttachmentStmt->bindValue(':id', $attachmentId, PDO::PARAM_INT);
+                $deleteAttachmentStmt->bindValue(':record_id', $recordSheetId);
+                $deleteAttachmentStmt->execute();
+
+                if ($filePath !== '') {
+                    $absolutePath = __DIR__ . '/' . ltrim($filePath, '/');
+                    if (is_file($absolutePath)) {
+                        @unlink($absolutePath);
+                    }
+                }
+            }
+        }
+
+        if ($errors === []) {
+            header('Location: ' . buildDetailUrl(['attachment_deleted' => '1', 'refresh' => (string) time()], 'email-compose'));
+            exit;
         }
     } elseif ($action === 'save_email_draft' || $action === 'send_email') {
         if ($action === 'send_email' && !$canSendMail) {
@@ -1215,9 +1261,11 @@ require 'header.php';
                 <p class="notice">メール下書きを保存しました。</p>
               <?php elseif (isset($_GET['mail_sent'])): ?>
                 <p class="notice">メール送信を受け付けました。</p>
+              <?php elseif (isset($_GET['attachment_deleted'])): ?>
+                <p class="notice">添付ファイルを削除しました。</p>
               <?php endif; ?>
 
-              <?php if ($errors !== [] && ($currentAction === 'save_email_draft' || $currentAction === 'send_email')): ?>
+              <?php if ($errors !== [] && ($currentAction === 'save_email_draft' || $currentAction === 'send_email' || $currentAction === 'delete_email_attachment')): ?>
                 <ul class="error-list">
                   <?php foreach ($errors as $error): ?>
                     <li><?= h($error); ?></li>
@@ -1270,9 +1318,24 @@ require 'header.php';
                     <ul class="attachment-list">
                       <?php foreach ($existingAttachments as $attachment): ?>
                         <li>
-                          <a href="<?= h((string) ($attachment['file_path'] ?? '')); ?>" target="_blank" rel="noopener noreferrer">
-                            <?= h((string) ($attachment['file_name'] ?? '添付ファイル')); ?>
-                          </a>
+                          <span class="attachment-chip">
+                            <a href="<?= h((string) ($attachment['file_path'] ?? '')); ?>" target="_blank" rel="noopener noreferrer">
+                              <?= h((string) ($attachment['file_name'] ?? '添付ファイル')); ?>
+                            </a>
+                            <button
+                              type="submit"
+                              class="attachment-remove-btn"
+                              name="action"
+                              value="delete_email_attachment:<?= h((string) ($attachment['id'] ?? '0')); ?>"
+                              aria-label="添付ファイルを削除"
+                            >
+                              ×
+                            </button>
+                            <input type="hidden" name="email_template_id" value="<?= h($formValues['email_template_id']); ?>">
+                            <input type="hidden" name="mail_to" value="<?= h($formValues['mail_to']); ?>">
+                            <input type="hidden" name="mail_subject" value="<?= h($formValues['mail_subject']); ?>">
+                            <input type="hidden" name="mail_body" value="<?= h($formValues['mail_body']); ?>">
+                          </span>
                         </li>
                       <?php endforeach; ?>
                     </ul>

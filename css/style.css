@@ -1273,11 +1273,50 @@ audio {
 
 .attachment-list {
   margin: 10px 0 0;
-  padding-left: 18px;
+  padding-left: 0;
+  list-style: none;
 }
 
 .attachment-list li + li {
-  margin-top: 4px;
+  margin-top: 8px;
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border: 1px solid #c8d4f0;
+  border-radius: 999px;
+  background: #f7f9ff;
+}
+
+.attachment-chip a {
+  color: #3253a3;
+  text-decoration: none;
+}
+
+.attachment-chip a:hover {
+  text-decoration: underline;
+}
+
+.attachment-remove-btn {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  background: #dbe4ff;
+  color: #294a9b;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.attachment-remove-btn:hover {
+  background: #c8d7ff;
 }
 
 .swipe-send {
