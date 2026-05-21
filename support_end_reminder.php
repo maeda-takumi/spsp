@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
 
-const CHATWORK_API_KEY = '148e610a926709fbe91778aa36d8612c';
+// const CHATWORK_API_KEY = '148e610a926709fbe91778aa36d8612c';
 function readSupportEndReminderSettings(string $settingsPath): array
 {
     if (!is_file($settingsPath)) {
@@ -139,7 +139,6 @@ function sendSupportEndReminderIfNeeded(array $record, array $supportEndDateRows
 
     $supportEndDate = date('Y/m/d', strtotime('+6 months', $supportSendTimestamp));
     $message = "■サポート終了1ヶ月前通知\n"
-        . "シートID: " . $sheetId . "\n"
         . "顧客名: " . trim((string) ($record['full_name'] ?? '')) . "\n"
         . "LINE名: " . trim((string) ($record['line_name'] ?? '')) . "\n"
         . "セールス担当: " . $salesStaff . "\n"
