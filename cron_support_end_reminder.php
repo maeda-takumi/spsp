@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-require_once 'config.php';
-require_once 'support_end_reminder.php';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/support_end_reminder.php';
 
 function cronDb(): PDO
 {
