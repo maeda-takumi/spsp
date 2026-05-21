@@ -741,4 +741,84 @@
       });
     }
   }
+  const detailMainPanel = document.querySelector('[data-sales-staff-options]');
+  const supportEndSettingsForm = document.querySelector('[data-support-end-settings-form]');
+  if (detailMainPanel && supportEndSettingsForm) {
+    const toIdInput = supportEndSettingsForm.querySelector('[data-support-end-to-id]');
+    const salesListContainer = supportEndSettingsForm.querySelector('[data-support-end-sales-list]');
+    const salesStaffOptionsRaw = detailMainPanel.getAttribute('data-sales-staff-options') || '[]';
+    let salesStaffOptions = [];
+    let currentGroupMap = {};
+
+    try {
+      salesStaffOptions = JSON.parse(salesStaffOptionsRaw) || [];
+    } catch (error) {
+      salesStaffOptions = [];
+    }
+
+    const renderSalesInputs = () => {
+      if (!salesListContainer) {
+        return;
+      }
+      salesListContainer.innerHTML = '';
+      salesStaffOptions.forEach((staffName) => {
+        const row = document.createElement('div');
+        row.className = 'field';
+        const label = document.createElement('label');
+        label.textContent = `${staffName} のchatwork_id`;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.setAttribute('data-sales-staff-name', staffName);
+        input.value = currentGroupMap[staffName] || '';
+        row.appendChild(label);
+        row.appendChild(input);
+        salesListContainer.appendChild(row);
+      });
+    };
+
+    const loadSettings = async () => {
+      const response = await window.fetch('api/support_end_chatwork_settings_api.php', { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error('load failed');
+      }
+      const data = await response.json();
+      if (toIdInput) {
+        toIdInput.value = data.to_id || '';
+      }
+      currentGroupMap = data.sales_staff_group_ids || {};
+      renderSalesInputs();
+    };
+
+    supportEndSettingsForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const payload = {
+        to_id: toIdInput ? toIdInput.value.trim() : '',
+        sales_staff_group_ids: {},
+      };
+      supportEndSettingsForm.querySelectorAll('[data-sales-staff-name]').forEach((input) => {
+        const staffName = input.getAttribute('data-sales-staff-name') || '';
+        payload.sales_staff_group_ids[staffName] = input.value.trim();
+      });
+
+      const response = await window.fetch('api/support_end_chatwork_settings_api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        window.alert('設定の保存に失敗しました。');
+        return;
+      }
+      window.alert('設定を保存しました。');
+    });
+
+    document.querySelectorAll('[data-open-modal="support-end-chatwork-settings-modal"]').forEach((button) => {
+      button.addEventListener('click', () => {
+        loadSettings().catch(() => {
+          window.alert('設定の読み込みに失敗しました。');
+        });
+      });
+    });
+  }
+
 })();
