@@ -744,11 +744,11 @@
   const detailMainPanel = document.querySelector('[data-sales-staff-options]');
   const supportEndSettingsForm = document.querySelector('[data-support-end-settings-form]');
   if (detailMainPanel && supportEndSettingsForm) {
-    const toIdInput = supportEndSettingsForm.querySelector('[data-support-end-to-id]');
     const salesListContainer = supportEndSettingsForm.querySelector('[data-support-end-sales-list]');
     const salesStaffOptionsRaw = detailMainPanel.getAttribute('data-sales-staff-options') || '[]';
     let salesStaffOptions = [];
     let currentGroupMap = {};
+    let currentNotifications = {};
 
     try {
       salesStaffOptions = JSON.parse(salesStaffOptionsRaw) || [];
@@ -762,17 +762,34 @@
       }
       salesListContainer.innerHTML = '';
       salesStaffOptions.forEach((staffName) => {
-        const row = document.createElement('div');
-        row.className = 'field';
-        const label = document.createElement('label');
-        label.textContent = `${staffName} のchatwork_id`;
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.setAttribute('data-sales-staff-name', staffName);
-        input.value = currentGroupMap[staffName] || '';
-        row.appendChild(label);
-        row.appendChild(input);
-        salesListContainer.appendChild(row);
+        const card = document.createElement('div');
+        card.className = 'support-end-settings-card';
+        const title = document.createElement('h4');
+        title.className = 'support-end-settings-card-title';
+        title.textContent = staffName;
+
+        const toField = document.createElement('div');
+        toField.className = 'field';
+        const toLabel = document.createElement('label');
+        toLabel.textContent = 'to_id';
+        const toInput = document.createElement('input');
+        toInput.type = 'text';
+        toInput.setAttribute('data-sales-staff-to-id', staffName);
+        toInput.value = (currentNotifications[staffName] && currentNotifications[staffName].to_id) || '';
+
+        const roomField = document.createElement('div');
+        roomField.className = 'field';
+        const roomLabel = document.createElement('label');
+        roomLabel.textContent = 'グループID';
+        const roomInput = document.createElement('input');
+        roomInput.type = 'text';
+        roomInput.setAttribute('data-sales-staff-name', staffName);
+        roomInput.value = (currentNotifications[staffName] && currentNotifications[staffName].room_id) || currentGroupMap[staffName] || '';
+
+        toField.appendChild(toLabel); toField.appendChild(toInput);
+        roomField.appendChild(roomLabel); roomField.appendChild(roomInput);
+        card.appendChild(title); card.appendChild(toField); card.appendChild(roomField);
+        salesListContainer.appendChild(card);
       });
     };
 
@@ -782,22 +799,26 @@
         throw new Error('load failed');
       }
       const data = await response.json();
-      if (toIdInput) {
-        toIdInput.value = data.to_id || '';
-      }
       currentGroupMap = data.sales_staff_group_ids || {};
+      currentNotifications = data.sales_staff_notifications || {};
       renderSalesInputs();
     };
 
     supportEndSettingsForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       const payload = {
-        to_id: toIdInput ? toIdInput.value.trim() : '',
+        to_id: '',
         sales_staff_group_ids: {},
+        sales_staff_notifications: {},
       };
       supportEndSettingsForm.querySelectorAll('[data-sales-staff-name]').forEach((input) => {
         const staffName = input.getAttribute('data-sales-staff-name') || '';
+        const toInput = supportEndSettingsForm.querySelector(`[data-sales-staff-to-id="${staffName}"]`);
         payload.sales_staff_group_ids[staffName] = input.value.trim();
+        payload.sales_staff_notifications[staffName] = {
+          to_id: toInput ? toInput.value.trim() : '',
+          room_id: input.value.trim(),
+        };
       });
 
       const response = await window.fetch('api/support_end_chatwork_settings_api.php', {

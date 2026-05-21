@@ -1741,3 +1741,21 @@ audio {
     right: 10px;
     top: 8px;
 }
+.support-end-settings-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.support-end-settings-card {
+  border: 1px solid #dfe3eb;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.support-end-settings-card-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+}

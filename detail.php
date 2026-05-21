@@ -8,6 +8,7 @@ require_once 'support_interview_sheet_appender.php';
 require_once 'support_interview_mail_completion_updater.php';
 require_once 'refund_guarantee_section.php';
 require_once 'customer_tagging.php';
+require_once 'support_end_reminder.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
@@ -337,150 +338,6 @@ function tableExists(PDO $pdo, string $tableName): bool
     return (bool) $stmt->fetchColumn();
 }
 
-function readSupportEndReminderSettings(string $settingsPath): array
-{
-    if (!is_file($settingsPath)) {
-        return [];
-    }
-    $raw = file_get_contents($settingsPath);
-    if ($raw === false || trim($raw) === '') {
-        return [];
-    }
-    $decoded = json_decode($raw, true);
-    return is_array($decoded) ? $decoded : [];
-}
-
-
-function sendSupportEndChatworkNotification(string $roomId, string $messageBody, array $mentionChatworkIds = []): void
-{
-    $roomId = trim($roomId);
-    if ($roomId === '' || !preg_match('/^\d+$/', $roomId)) {
-        throw new RuntimeException('ChatworkルームIDが不正です。');
-    }
-
-    $mentions = [];
-    foreach ($mentionChatworkIds as $chatworkId) {
-        $chatworkId = trim((string) $chatworkId);
-        if ($chatworkId === '' || !preg_match('/^\d+$/', $chatworkId)) {
-            continue;
-        }
-        $mentions[] = '[To:' . $chatworkId . ']';
-    }
-
-    $message = trim(implode(' ', $mentions) . "
-" . trim($messageBody));
-    if ($message === '') {
-        return;
-    }
-
-    $curl = curl_init('https://api.chatwork.com/v2/rooms/' . rawurlencode($roomId) . '/messages');
-    if ($curl === false) {
-        throw new RuntimeException('Chatwork通知の初期化に失敗しました。');
-    }
-
-    curl_setopt_array($curl, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 20,
-        CURLOPT_POST => true,
-        CURLOPT_HTTPHEADER => [
-            'X-ChatWorkToken: ' . CHATWORK_API_KEY,
-            'Content-Type: application/x-www-form-urlencoded',
-        ],
-        CURLOPT_POSTFIELDS => http_build_query([
-            'body' => $message,
-        ]),
-    ]);
-
-    $raw = curl_exec($curl);
-    $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
-    $error = curl_error($curl);
-    curl_close($curl);
-
-    if ($raw === false) {
-        throw new RuntimeException('Chatwork通知送信に失敗しました。' . ($error !== '' ? ' ' . $error : ''));
-    }
-
-    if ($status >= 300) {
-        throw new RuntimeException('Chatwork通知送信に失敗しました。HTTP Status: ' . $status);
-    }
-}
-
-function sendSupportEndReminderIfNeeded(array $record, array $supportEndDateRows): void
-{
-    if ($supportEndDateRows === []) {
-        return;
-    }
-
-    $salesStaff = trim((string) ($record['sales_staff'] ?? ''));
-    if ($salesStaff === '') {
-        return;
-    }
-
-    $settingsPath = __DIR__ . '/support_end_chatwork_settings.json';
-    $settings = readSupportEndReminderSettings($settingsPath);
-    $groupMap = is_array($settings['sales_staff_group_ids'] ?? null) ? $settings['sales_staff_group_ids'] : [];
-    $roomId = trim((string) ($groupMap[$salesStaff] ?? ''));
-    if ($roomId === '' || !preg_match('/^\d+$/', $roomId)) {
-        return;
-    }
-
-    $toId = trim((string) ($settings['to_id'] ?? ''));
-    $mentions = [];
-    if ($toId !== '' && preg_match('/^\d+$/', $toId)) {
-        $mentions[] = $toId;
-    }
-
-    $latestRow = $supportEndDateRows[0] ?? null;
-    if (!is_array($latestRow)) {
-        return;
-    }
-
-    $supportSendRawDate = (string) ($latestRow['send_date'] ?? '');
-    $supportSendTimestamp = strtotime($supportSendRawDate);
-    if ($supportSendTimestamp === false) {
-        return;
-    }
-
-    $notifyAt = strtotime('+5 months', $supportSendTimestamp);
-    if ($notifyAt === false) {
-        return;
-    }
-
-    $today = strtotime(date('Y-m-d'));
-    if ($today !== $notifyAt) {
-        return;
-    }
-
-    $logPath = __DIR__ . '/support_end_chatwork_notification_logs.json';
-    $logs = readSupportEndReminderSettings($logPath);
-    $sheetId = trim((string) ($record['sheet_id'] ?? ''));
-    $logKey = $sheetId . '_' . date('Y-m-d', $notifyAt);
-    if (isset($logs[$logKey])) {
-        return;
-    }
-
-    $supportEndDate = date('Y/m/d', strtotime('+6 months', $supportSendTimestamp));
-    $message = "■サポート終了1ヶ月前通知
-"
-        . "シートID: " . $sheetId . "
-"
-        . "顧客名: " . trim((string) ($record['full_name'] ?? '')) . "
-"
-        . "LINE名: " . trim((string) ($record['line_name'] ?? '')) . "
-"
-        . "セールス担当: " . $salesStaff . "
-"
-        . "サポート終了日: " . $supportEndDate;
-
-    sendSupportEndChatworkNotification($roomId, $message, $mentions);
-    $logs[$logKey] = [
-        'notified_at' => date('c'),
-        'sheet_id' => $sheetId,
-        'sales_staff' => $salesStaff,
-        'room_id' => $roomId,
-    ];
-    file_put_contents($logPath, json_encode($logs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-}
 $pdo = db();
 
 $recordStmt = $pdo->prepare('SELECT * FROM customer_sales_records WHERE sheet_id = :sheet_id LIMIT 1');
@@ -1716,12 +1573,8 @@ require 'header.php';
     </header>
     <form class="template-form" data-support-end-settings-form>
       <div class="field">
-        <label for="support_end_to_id">to_id（[To:XXX]のID）</label>
-        <input id="support_end_to_id" type="text" data-support-end-to-id>
-      </div>
-      <div class="field">
-        <label>セールス担当ごとのChatWorkグループID</label>
-        <div data-support-end-sales-list></div>
+        <label>セールス担当ごとの通知先（to_id / グループID）</label>
+        <div class="support-end-settings-cards" data-support-end-sales-list></div>
       </div>
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">保存</button>

@@ -26,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     echo json_encode([
         'to_id' => (string) ($settings['to_id'] ?? ''),
         'sales_staff_group_ids' => is_array($settings['sales_staff_group_ids'] ?? null) ? $settings['sales_staff_group_ids'] : [],
+        'sales_staff_notifications' => is_array($settings['sales_staff_notifications'] ?? null) ? $settings['sales_staff_notifications'] : [],
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -52,6 +53,26 @@ if (!is_array($groupMap)) {
     exit;
 }
 
+$notifications = $payload['sales_staff_notifications'] ?? [];
+if (!is_array($notifications)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'sales_staff_notificationsの形式が不正です。'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+$normalizedNotifications = [];
+foreach ($notifications as $staffName => $target) {
+    $name = trim((string) $staffName);
+    if ($name === '') {
+        continue;
+    }
+    $targetData = is_array($target) ? $target : [];
+    $normalizedNotifications[$name] = [
+        'to_id' => trim((string) ($targetData['to_id'] ?? '')),
+        'room_id' => trim((string) ($targetData['room_id'] ?? '')),
+    ];
+}
+
 $normalizedMap = [];
 foreach ($groupMap as $staffName => $chatworkGroupId) {
     $name = trim((string) $staffName);
@@ -64,6 +85,7 @@ foreach ($groupMap as $staffName => $chatworkGroupId) {
 $data = [
     'to_id' => $toId,
     'sales_staff_group_ids' => $normalizedMap,
+    'sales_staff_notifications' => $normalizedNotifications,
     'updated_at' => date('c'),
 ];
 
