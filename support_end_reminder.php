@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
 
+const CHATWORK_API_KEY = '148e610a926709fbe91778aa36d8612c';
 function readSupportEndReminderSettings(string $settingsPath): array
 {
     if (!is_file($settingsPath)) {

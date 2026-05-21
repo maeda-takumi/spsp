@@ -30,6 +30,9 @@ $sql = 'SELECT csr.sheet_id, csr.full_name, csr.line_name, csr.sales_staff, rm.s
 $stmt = $pdo->query($sql);
 $rows = $stmt->fetchAll();
 $sentCount = 0;
+$skipCount = 0;
+$errorCount = 0;
+$today = date('Y-m-d');
 foreach ($rows as $row) {
     $record = [
         'sheet_id' => (string) ($row['sheet_id'] ?? ''),
@@ -38,13 +41,43 @@ foreach ($rows as $row) {
         'sales_staff' => (string) ($row['sales_staff'] ?? ''),
     ];
     $supportEndDateRows = [['send_date' => (string) ($row['send_date'] ?? '')]];
+    $sendDate = (string) ($row['send_date'] ?? '');
+    $supportEndDateRows = [['send_date' => $sendDate]];
+
+    $sendTimestamp = strtotime($sendDate);
+    $notifyAt = $sendTimestamp === false ? false : strtotime('+5 months', $sendTimestamp);
+    $notifyAtText = $notifyAt === false ? 'invalid-send-date' : date('Y-m-d', $notifyAt);
     try {
         if (sendSupportEndReminderIfNeeded($record, $supportEndDateRows)) {
             $sentCount++;
+            echo 'SENT sheet_id=' . $record['sheet_id']
+                . ' sales_staff=' . $record['sales_staff']
+                . ' send_date=' . $sendDate
+                . ' notify_at=' . $notifyAtText
+                . PHP_EOL;
+            continue;
         }
+        $skipCount++;
+        echo 'SKIP sheet_id=' . $record['sheet_id']
+            . ' sales_staff=' . $record['sales_staff']
+            . ' send_date=' . $sendDate
+            . ' notify_at=' . $notifyAtText
+            . ' today=' . $today
+            . PHP_EOL;
     } catch (Throwable $e) {
+        $errorCount++;
+        $message = 'ERROR sheet_id=' . $record['sheet_id']
+            . ' sales_staff=' . $record['sales_staff']
+            . ' send_date=' . $sendDate
+            . ' notify_at=' . $notifyAtText
+            . ' message=' . $e->getMessage();
         error_log('サポート終了通知cronエラー sheet_id=' . $record['sheet_id'] . ' ' . $e->getMessage());
+        echo $message . PHP_EOL;
     }
 }
 
-echo 'checked=' . count($rows) . ', sent=' . $sentCount . PHP_EOL;
+echo 'checked=' . count($rows)
+    . ', sent=' . $sentCount
+    . ', skipped=' . $skipCount
+    . ', errors=' . $errorCount
+    . PHP_EOL;
