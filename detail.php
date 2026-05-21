@@ -1573,7 +1573,8 @@ require 'header.php';
     </header>
     <form class="template-form" data-support-end-settings-form>
       <div class="field">
-        <label>セールス担当ごとの通知先（to_id / グループID）</label>
+        <label>セールス担当ごとの通知先（to_id / chatwork_id）</label>
+        <p class="muted">各担当者の通知先を個別に設定できます。<code>to_id</code> はメンション対象のChatworkユーザーID、<code>chatwork_id</code> は通知先グループチャットIDです。</p>
         <div class="support-end-settings-cards" data-support-end-sales-list></div>
       </div>
       <div class="form-actions">

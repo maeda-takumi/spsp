@@ -75,7 +75,7 @@ function resolveSupportEndNotificationTarget(string $salesStaff, array $settings
     $targets = is_array($settings['sales_staff_notifications'] ?? null) ? $settings['sales_staff_notifications'] : [];
     $target = is_array($targets[$salesStaff] ?? null) ? $targets[$salesStaff] : [];
 
-    $roomId = trim((string) ($target['room_id'] ?? ''));
+    $roomId = trim((string) ($target['room_id'] ?? $target['chatwork_id'] ?? ''));
     $toId = trim((string) ($target['to_id'] ?? ''));
 
     if ($roomId === '') {

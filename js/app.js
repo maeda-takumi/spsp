@@ -764,31 +764,42 @@
       salesStaffOptions.forEach((staffName) => {
         const card = document.createElement('div');
         card.className = 'support-end-settings-card';
+        card.setAttribute('data-sales-staff-card', staffName);
         const title = document.createElement('h4');
         title.className = 'support-end-settings-card-title';
         title.textContent = staffName;
 
+        const guide = document.createElement('p');
+        guide.className = 'support-end-settings-card-guide';
+        guide.textContent = '通知メンション先と送信先ルームを設定';
+
+        const fields = document.createElement('div');
+        fields.className = 'support-end-settings-card-fields';
+
         const toField = document.createElement('div');
-        toField.className = 'field';
+        toField.className = 'field support-end-settings-field';
         const toLabel = document.createElement('label');
         toLabel.textContent = 'to_id';
         const toInput = document.createElement('input');
         toInput.type = 'text';
+        toInput.placeholder = '例: 1234567';
         toInput.setAttribute('data-sales-staff-to-id', staffName);
         toInput.value = (currentNotifications[staffName] && currentNotifications[staffName].to_id) || '';
 
         const roomField = document.createElement('div');
-        roomField.className = 'field';
+        roomField.className = 'field support-end-settings-field';
         const roomLabel = document.createElement('label');
-        roomLabel.textContent = 'グループID';
+        roomLabel.textContent = 'chatwork_id';
         const roomInput = document.createElement('input');
         roomInput.type = 'text';
+        roomInput.placeholder = '例: 987654321';
         roomInput.setAttribute('data-sales-staff-name', staffName);
-        roomInput.value = (currentNotifications[staffName] && currentNotifications[staffName].room_id) || currentGroupMap[staffName] || '';
+        roomInput.value = (currentNotifications[staffName] && (currentNotifications[staffName].chatwork_id || currentNotifications[staffName].room_id)) || currentGroupMap[staffName] || '';
 
         toField.appendChild(toLabel); toField.appendChild(toInput);
         roomField.appendChild(roomLabel); roomField.appendChild(roomInput);
-        card.appendChild(title); card.appendChild(toField); card.appendChild(roomField);
+        fields.appendChild(toField); fields.appendChild(roomField);
+        card.appendChild(title); card.appendChild(guide); card.appendChild(fields);
         salesListContainer.appendChild(card);
       });
     };
@@ -818,6 +829,7 @@
         payload.sales_staff_notifications[staffName] = {
           to_id: toInput ? toInput.value.trim() : '',
           room_id: input.value.trim(),
+          chatwork_id: input.value.trim(),
         };
       });
 

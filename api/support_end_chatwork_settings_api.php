@@ -69,7 +69,8 @@ foreach ($notifications as $staffName => $target) {
     $targetData = is_array($target) ? $target : [];
     $normalizedNotifications[$name] = [
         'to_id' => trim((string) ($targetData['to_id'] ?? '')),
-        'room_id' => trim((string) ($targetData['room_id'] ?? '')),
+        'room_id' => trim((string) ($targetData['room_id'] ?? $targetData['chatwork_id'] ?? '')),
+        'chatwork_id' => trim((string) ($targetData['chatwork_id'] ?? $targetData['room_id'] ?? '')),
     ];
 }
 

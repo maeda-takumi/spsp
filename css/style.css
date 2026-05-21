@@ -1743,19 +1743,43 @@ audio {
 }
 .support-end-settings-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
 }
 
 .support-end-settings-card {
-  border: 1px solid #dfe3eb;
-  border-radius: 10px;
-  padding: 12px;
+  border: 1px solid #d3def5;
+  border-radius: 12px;
+  padding: 14px;
   background: #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 6px 14px rgba(16, 49, 117, 0.08);
 }
 
 .support-end-settings-card-title {
-  margin: 0 0 8px;
-  font-size: 14px;
+  margin: 0;
+  font-size: 15px;
+  color: #1f2937;
+}
+
+.support-end-settings-card-guide {
+  margin: 6px 0 12px;
+  font-size: 12px;
+  color: #5b6475;
+}
+
+.support-end-settings-card-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.support-end-settings-field label {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .support-end-settings-card-fields {
+    grid-template-columns: 1fr;
+  }
 }
