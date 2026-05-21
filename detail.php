@@ -351,7 +351,9 @@ if (!$record) {
 }
 
 $requestManagementInfo = null;
-if ($requestManagementId !== null && tableExists($pdo, 'request_management')) {
+$supportEndDateRows = [];
+$hasRequestManagementTable = tableExists($pdo, 'request_management');
+if ($requestManagementId !== null && $hasRequestManagementTable) {
     $requiredRequestManagementColumns = ['sheet_id', 'request_type', 'document_type', 'is_completed', 'created_at'];
     $hasRequiredColumns = true;
     foreach ($requiredRequestManagementColumns as $requiredRequestManagementColumn) {
@@ -388,6 +390,20 @@ if ($requestManagementId !== null && tableExists($pdo, 'request_management')) {
             $requestManagementInfo = $fetchedRequestManagementInfo;
         }
     }
+}
+if ($hasRequestManagementTable && tableHasColumn($pdo, 'request_management', 'send_date')) {
+    $supportEndDateStmt = $pdo->prepare(
+        'SELECT id, send_date
+         FROM request_management
+         WHERE sheet_id = :sheet_id
+           AND send_date IS NOT NULL
+           AND send_date <> ""
+         ORDER BY send_date DESC, id DESC
+         LIMIT 2'
+    );
+    $supportEndDateStmt->bindValue(':sheet_id', $sheetId);
+    $supportEndDateStmt->execute();
+    $supportEndDateRows = $supportEndDateStmt->fetchAll();
 }
 $pdo->exec('CREATE TABLE IF NOT EXISTS email_templates (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -1228,6 +1244,39 @@ require 'header.php';
       </section>
 
       <div class="detail-right-stack">
+        <section class="panel content-panel detail-panel">
+          <h2>サポート終了日管理</h2>
+          <?php if ($supportEndDateRows !== []): ?>
+            <div class="request-management-summary" aria-label="サポート終了日">
+              <div class="request-management-summary-main">
+                <?php foreach ($supportEndDateRows as $index => $supportEndDateRow): ?>
+                  <?php
+                  $supportSendRawDate = (string) ($supportEndDateRow['send_date'] ?? '');
+                  $supportSendDate = '';
+                  $supportEndDate = '';
+                  if ($supportSendRawDate !== '') {
+                      $supportSendTimestamp = strtotime($supportSendRawDate);
+                      if ($supportSendTimestamp !== false) {
+                          $supportSendDate = date('Y/m/d', $supportSendTimestamp);
+                          $supportEndDate = date('Y/m/d', strtotime('+6 months', $supportSendTimestamp));
+                      } else {
+                          $supportSendDate = (string) preg_replace('/\s.+$/', '', $supportSendRawDate);
+                      }
+                  }
+                  ?>
+                  <span>
+                    <span class="meta-label">サポート終了日<?= count($supportEndDateRows) > 1 ? ' #' . ($index + 1) : ''; ?></span>
+                    <strong><?= h($supportEndDate !== '' ? $supportEndDate : '（算出不可）'); ?></strong>
+                    <span class="meta-label">基準送信日</span>
+                    <strong><?= h($supportSendDate !== '' ? $supportSendDate : '（未設定）'); ?></strong>
+                  </span>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          <?php else: ?>
+            <p class="meta">送信日がないため、サポート終了日は表示できません。</p>
+          <?php endif; ?>
+        </section>
         <section id="email-compose" class="panel content-panel detail-panel">
           <div class="section-head">
             <h2>メール作成</h2>
