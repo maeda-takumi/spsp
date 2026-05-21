@@ -1229,6 +1229,8 @@ $writings = $writingsStmt->fetchAll();
 
 $templatesStmt = $pdo->query('SELECT id, template_name, mail_subject, mail_body, chatwork_message_template, chatwork_mention_ids, updated_at FROM email_templates ORDER BY updated_at DESC, id DESC');
 $emailTemplates = $templatesStmt !== false ? $templatesStmt->fetchAll() : [];
+$salesStaffStmt = $pdo->query("SELECT DISTINCT sales_staff FROM customer_sales_records WHERE sales_staff IS NOT NULL AND sales_staff <> '' ORDER BY sales_staff ASC");
+$salesStaffOptions = $salesStaffStmt !== false ? $salesStaffStmt->fetchAll(PDO::FETCH_COLUMN) : [];
 $customerFields = [
     'sheet_id' => 'シートID',
     'serial_no' => '通し番号',
