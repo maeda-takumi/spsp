@@ -130,7 +130,31 @@ function ensureRequestManagementTable(PDO $pdo): void
     if (!$columnCheckStmt->fetchColumn()) {
         $pdo->exec('ALTER TABLE request_management ADD COLUMN send_date DATE NULL AFTER request_type');
     }
+    $columnCheckStmt->bindValue(':schema', DB_NAME);
+    $columnCheckStmt->bindValue(':table_name', 'request_management');
+    $columnCheckStmt->bindValue(':column_name', 'start_date');
+    $columnCheckStmt->execute();
+
+    if (!$columnCheckStmt->fetchColumn()) {
+        $pdo->exec('ALTER TABLE request_management ADD COLUMN start_date DATE NULL AFTER send_date');
+    }
 }
+function ensureSupportEndDateTable(PDO $pdo): void
+{
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS support_end_dates (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            sheet_id VARCHAR(100) NOT NULL,
+            support_end_date DATE NOT NULL,
+            source_send_date DATE NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uniq_sheet_id (sheet_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+}
+
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     apiFail('POST メソッドで実行してください。', 405);
@@ -155,19 +179,41 @@ if (!ctype_digit($sheetId)) {
 try {
     $pdo = apiDb();
     ensureRequestManagementTable($pdo);
+    ensureSupportEndDateTable($pdo);
+
+    $startDate = null;
+    if ($requestType === '目次面談' && $sendDate !== '') {
+        $startDate = $sendDate;
+    }
 
     $stmt = $pdo->prepare(
-        'INSERT INTO request_management (sheet_id, document_type, request_type, curriculum_type, send_date, memo)
-         VALUES (:sheet_id, :document_type, :request_type, :curriculum_type, :send_date, :memo)'
+        'INSERT INTO request_management (sheet_id, document_type, request_type, curriculum_type, send_date, start_date, memo)
+         VALUES (:sheet_id, :document_type, :request_type, :curriculum_type, :send_date, :start_date, :memo)'
     );
     $stmt->bindValue(':sheet_id', (int) $sheetId, PDO::PARAM_INT);
     $stmt->bindValue(':document_type', $documentType);
     $stmt->bindValue(':request_type', $requestType);
     $stmt->bindValue(':curriculum_type', $curriculumType);
     $stmt->bindValue(':send_date', $sendDate === '' ? null : $sendDate, $sendDate === '' ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':start_date', $startDate, $startDate === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
     $stmt->bindValue(':memo', $memo);
     $stmt->execute();
 
+    if ($sendDate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $sendDate)) {
+        $supportEndDate = date('Y-m-d', strtotime('+6 months', strtotime($sendDate)));
+        $supportEndDateStmt = $pdo->prepare(
+            'INSERT INTO support_end_dates (sheet_id, support_end_date, source_send_date)
+             VALUES (:sheet_id, :support_end_date, :source_send_date)
+             ON DUPLICATE KEY UPDATE
+                 support_end_date = VALUES(support_end_date),
+                 source_send_date = VALUES(source_send_date),
+                 updated_at = CURRENT_TIMESTAMP'
+        );
+        $supportEndDateStmt->bindValue(':sheet_id', $sheetId);
+        $supportEndDateStmt->bindValue(':support_end_date', $supportEndDate);
+        $supportEndDateStmt->bindValue(':source_send_date', $sendDate);
+        $supportEndDateStmt->execute();
+    }
     apiRespond([
         'ok' => true,
         'message' => 'request_management に保存しました。',

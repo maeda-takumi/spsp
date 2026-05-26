@@ -353,6 +353,7 @@ if (!$record) {
 
 $requestManagementInfo = null;
 $supportEndDateRows = [];
+$persistedSupportEndDate = [];
 $hasRequestManagementTable = tableExists($pdo, 'request_management');
 if ($requestManagementId !== null && $hasRequestManagementTable) {
     $requiredRequestManagementColumns = ['sheet_id', 'request_type', 'document_type', 'is_completed', 'created_at'];
@@ -415,11 +416,21 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS support_end_date_overrides (
     PRIMARY KEY (id),
     UNIQUE KEY uniq_sheet_id (sheet_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+$pdo->exec('CREATE TABLE IF NOT EXISTS support_end_dates (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    sheet_id VARCHAR(100) NOT NULL,
+    support_end_date DATE NOT NULL,
+    source_send_date DATE NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_sheet_id (sheet_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
 try {
-    $supportEndDateOverrideStmt = $pdo->prepare('SELECT support_end_date, updated_at FROM support_end_date_overrides WHERE sheet_id = :sheet_id LIMIT 1');
-    $supportEndDateOverrideStmt->bindValue(':sheet_id', (string) $sheetId);
-    $supportEndDateOverrideStmt->execute();
-    $supportEndDateOverride = $supportEndDateOverrideStmt->fetch() ?: [];
+    $persistedSupportEndDateStmt = $pdo->prepare('SELECT support_end_date, source_send_date, updated_at FROM support_end_dates WHERE sheet_id = :sheet_id LIMIT 1');
+    $persistedSupportEndDateStmt->bindValue(':sheet_id', (string) $sheetId);
+    $persistedSupportEndDateStmt->execute();
+    $persistedSupportEndDate = $persistedSupportEndDateStmt->fetch() ?: [];
     $supportReminderRows = $supportEndDateRows;
     if ($supportReminderRows !== []) {
         $supportReminderRows[0]['support_end_date'] = (string) ($supportEndDateOverride['support_end_date'] ?? '');
@@ -1296,7 +1307,7 @@ require 'header.php';
 	              <div class="request-management-summary-main">
 	                <?php
                     $latestSupportEndDateRow = $supportEndDateRows[0] ?? [];
-                    $supportSendRawDate = (string) ($latestSupportEndDateRow['send_date'] ?? '');
+                    $supportSendRawDate = (string) ($requestManagementInfo['send_date'] ?? ($latestSupportEndDateRow['send_date'] ?? ''));
                     $supportSendDate = '';
                     $calculatedSupportEndDate = '';
                     if ($supportSendRawDate !== '') {
@@ -1306,6 +1317,13 @@ require 'header.php';
                             $calculatedSupportEndDate = date('Y/m/d', strtotime('+6 months', $supportSendTimestamp));
                         } else {
                             $supportSendDate = (string) preg_replace('/\s.+$/', '', $supportSendRawDate);
+                        }
+                    }
+                    $persistedSupportEndDateRaw = (string) ($persistedSupportEndDate['support_end_date'] ?? '');
+                    if ($persistedSupportEndDateRaw !== '') {
+                        $persistedTimestamp = strtotime($persistedSupportEndDateRaw);
+                        if ($persistedTimestamp !== false) {
+                            $calculatedSupportEndDate = date('Y/m/d', $persistedTimestamp);
                         }
                     }
                     $overrideSupportEndDateRaw = (string) ($supportEndDateOverride['support_end_date'] ?? '');
@@ -1639,7 +1657,9 @@ require 'header.php';
       <input type="hidden" name="action" value="save_support_end_date">
       <?php
         $supportEndDateModalValue = (string) ($supportEndDateOverride['support_end_date'] ?? '');
-        if ($supportEndDateModalValue === '' && $supportEndDateRows !== []) {
+        if ($supportEndDateModalValue === '' && (string) ($persistedSupportEndDate['support_end_date'] ?? '') !== '') {
+            $supportEndDateModalValue = (string) $persistedSupportEndDate['support_end_date'];
+        } elseif ($supportEndDateModalValue === '' && $supportEndDateRows !== []) {
             $baseSendTimestamp = strtotime((string) ($supportEndDateRows[0]['send_date'] ?? ''));
             if ($baseSendTimestamp !== false) {
                 $supportEndDateModalValue = date('Y-m-d', strtotime('+6 months', $baseSendTimestamp));
