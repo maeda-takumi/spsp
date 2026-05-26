@@ -191,6 +191,7 @@ require 'header.php';
           <img class="side-nav__alert-icon" src="<?= $hasOverduePendingRequest ? 'img/dokuro.png' : 'img/alert.png'; ?>" alt="未完了の送付依頼あり" loading="lazy">
         <?php endif; ?>
       </a>
+      <a href="support_end_users.php">サポート終了者一覧</a>
       <p>Application</p>
       <div class="side-nav__app-link">
         <a href="https://totalappworks.com/support_aori/" target="_blank" rel="noopener noreferrer">Bull-Fight</a>

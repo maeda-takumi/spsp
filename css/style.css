@@ -303,6 +303,14 @@ body {
     background: linear-gradient(329deg, rgba(210, 248, 239, 0.44), rgb(228 0 255 / 31%));
 }
 
+.dashboard-shell--support-end .side-nav a.is-current {
+  background: linear-gradient(135deg, #f59e0b, #facc15);
+  color: #1f2937;
+}
+
+.side-panel--support-end {
+  background: linear-gradient(180deg, rgba(254, 243, 199, 0.55), rgba(253, 230, 138, 0.42));
+}
 .memo-panel {
   margin-top: 18px;
   padding: 14px;

@@ -204,6 +204,8 @@ require 'header.php';
     <p>PAGES</p>
     <nav class="side-nav" aria-label="メニュー">
       <a href="index.php">顧客一覧</a>
+      <a class="is-current" href="request_management.php">送付依頼一覧</a>
+      <a href="support_end_users.php">サポート終了者一覧</a>
       <p>Application</p>
       <div class="side-nav__app-link">
         <a href="https://totalappworks.com/support_aori/" target="_blank" rel="noopener noreferrer">Bull-Fight</a>
