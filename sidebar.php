@@ -24,7 +24,7 @@ function renderSidebar(string $currentPage, array $options = []): void
         [
             'key' => 'support_end_users',
             'href' => 'support_end_users.php',
-            'label' => 'サポート終了者一覧',
+            'label' => 'サポート終了管理一覧',
         ],
     ];
 

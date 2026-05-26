@@ -70,11 +70,53 @@ function getPendingRequestFlags(PDO $pdo): array
 
     return [$hasPendingRequest, $hasOverduePendingRequest];
 }
+function ensureSupportEndStatusTable(PDO $pdo): void
+{
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS support_end_user_statuses (
+            sheet_id VARCHAR(255) NOT NULL PRIMARY KEY,
+            is_ended TINYINT(1) NOT NULL DEFAULT 0,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+    );
+}
 
 $pdo = db();
+ensureSupportEndStatusTable($pdo);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sheet_id'], $_POST['is_ended'])) {
+    $sheetId = trim((string) $_POST['sheet_id']);
+    $isEnded = (int) $_POST['is_ended'] === 1 ? 1 : 0;
+
+    if ($sheetId !== '') {
+        $upsertStmt = $pdo->prepare(
+            'INSERT INTO support_end_user_statuses (sheet_id, is_ended)
+             VALUES (:sheet_id, :is_ended)
+             ON DUPLICATE KEY UPDATE is_ended = VALUES(is_ended)'
+        );
+        $upsertStmt->bindValue(':sheet_id', $sheetId);
+        $upsertStmt->bindValue(':is_ended', $isEnded, PDO::PARAM_INT);
+        $upsertStmt->execute();
+    }
+
+    $redirectQuery = $_GET;
+    unset($redirectQuery['page']);
+    $redirectUrl = 'support_end_users.php';
+    if ($redirectQuery !== []) {
+        $redirectUrl .= '?' . http_build_query($redirectQuery);
+    }
+    header('Location: ' . $redirectUrl);
+    exit;
+}
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 20;
 $offset = ($page - 1) * $perPage;
+
+$keyword = trim((string) ($_GET['keyword'] ?? ''));
+$statusFilter = (string) ($_GET['status'] ?? 'active');
+if (!in_array($statusFilter, ['active', 'ended', 'all'], true)) {
+    $statusFilter = 'active';
+}
 
 $supportEndColumnExists = tableHasColumn($pdo, 'request_management', 'support_end_date');
 $sendDateColumnExists = tableHasColumn($pdo, 'request_management', 'send_date');
@@ -91,10 +133,38 @@ if (!$supportEndColumnExists && !$sendDateColumnExists) {
             ? 'NULLIF(rm.support_end_date, \'\')'
             : 'DATE_ADD(rm.send_date, INTERVAL 6 MONTH)');
 
+    $where = ['target.support_end_date IS NOT NULL'];
+    $bindings = [];
+
+    if ($statusFilter === 'active') {
+        $where[] = 'COALESCE(ses.is_ended, 0) = 0';
+    } elseif ($statusFilter === 'ended') {
+        $where[] = 'COALESCE(ses.is_ended, 0) = 1';
+    }
+
+    if ($keyword !== '') {
+        $where[] = '(csr.line_name LIKE :keyword OR csr.full_name LIKE :keyword OR csr.email LIKE :keyword OR csr.sales_staff LIKE :keyword)';
+        $bindings[':keyword'] = '%' . $keyword . '%';
+    }
+
+    $whereSql = implode(' AND ', $where);
+
     $countSql = 'SELECT COUNT(*)
-        FROM request_management rm
-        WHERE ' . $computedSupportEndDateSql . ' IS NOT NULL';
-    $countStmt = $pdo->query($countSql);
+        FROM (
+            SELECT
+                rm.sheet_id,
+                ' . $computedSupportEndDateSql . ' AS support_end_date
+            FROM request_management rm
+        ) AS target
+        LEFT JOIN customer_sales_records csr ON target.sheet_id = csr.sheet_id
+        LEFT JOIN support_end_user_statuses ses ON target.sheet_id = ses.sheet_id
+        WHERE ' . $whereSql;
+
+    $countStmt = $pdo->prepare($countSql);
+    foreach ($bindings as $name => $value) {
+        $countStmt->bindValue($name, $value);
+    }
+    $countStmt->execute();
     $total = (int) $countStmt->fetchColumn();
     $totalPages = max(1, (int) ceil($total / $perPage));
 
@@ -104,31 +174,36 @@ if (!$supportEndColumnExists && !$sendDateColumnExists) {
     }
 
     $sql = 'SELECT
+            target.sheet_id,
             csr.line_name,
             csr.full_name,
             csr.email,
             csr.sales_staff,
-            target.support_end_date
+            target.support_end_date,
+            COALESCE(ses.is_ended, 0) AS is_ended
         FROM (
             SELECT
                 rm.sheet_id,
                 ' . $computedSupportEndDateSql . ' AS support_end_date
             FROM request_management rm
-            WHERE ' . $computedSupportEndDateSql . ' IS NOT NULL
-            ORDER BY support_end_date ASC, rm.sheet_id ASC
-            LIMIT :limit OFFSET :offset
         ) AS target
         LEFT JOIN customer_sales_records csr ON target.sheet_id = csr.sheet_id
-        ORDER BY target.support_end_date ASC, target.sheet_id ASC';
+        LEFT JOIN support_end_user_statuses ses ON target.sheet_id = ses.sheet_id
+        WHERE ' . $whereSql . '
+        ORDER BY target.support_end_date ASC, target.sheet_id ASC
+        LIMIT :limit OFFSET :offset';
 
     $stmt = $pdo->prepare($sql);
+    foreach ($bindings as $name => $value) {
+        $stmt->bindValue($name, $value);
+    }
     $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
     $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
     $stmt->execute();
     $rows = $stmt->fetchAll();
 }
 
-$pageTitle = 'SUP-SUP NEO サポート終了者一覧';
+$pageTitle = 'SUP-SUP NEO サポート終了管理一覧';
 require 'header.php';
 ?>
 <div class="glass-board" aria-hidden="true" style="display:none;"></div>
@@ -143,13 +218,22 @@ require 'header.php';
 
   <section class="main-panel">
     <section class="panel content-panel table-wrap">
+      <form method="get" style="margin-bottom: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <input type="text" name="keyword" value="<?= h($keyword); ?>" placeholder="ユーザ検索（LINE名・本名・メール・セールス）" style="min-width: 280px;" />
+        <select name="status">
+          <option value="active" <?= $statusFilter === 'active' ? 'selected' : ''; ?>>継続中のみ</option>
+          <option value="ended" <?= $statusFilter === 'ended' ? 'selected' : ''; ?>>終了のみ</option>
+          <option value="all" <?= $statusFilter === 'all' ? 'selected' : ''; ?>>すべて</option>
+        </select>
+        <button type="submit" class="btn">検索</button>
+      </form>
       <?php if ($rows === []): ?>
         <div class="empty">表示できるデータがありません。</div>
       <?php else: ?>
         <table class="table">
           <thead>
             <tr>
-              <th>シートID</th>
+              <th>状態</th>
               <th>LINE名</th>
               <th>本名</th>
               <th>メールアドレス</th>
@@ -160,7 +244,15 @@ require 'header.php';
           <tbody>
             <?php foreach ($rows as $row): ?>
               <tr>
-                <td data-label="シートID"><?= h((string) ($row['sheet_id'] ?? '')); ?></td>
+                <td data-label="状態">
+                  <form method="post" style="margin: 0; display: inline-flex; align-items: center; gap: 8px;">
+                    <input type="hidden" name="sheet_id" value="<?= h((string) ($row['sheet_id'] ?? '')); ?>">
+                    <input type="hidden" name="is_ended" value="<?= ((int) ($row['is_ended'] ?? 0) === 1) ? '0' : '1'; ?>">
+                    <button type="submit" class="btn btn-ghost" style="min-width: 84px;">
+                      <?= ((int) ($row['is_ended'] ?? 0) === 1) ? 'ON: 終了' : 'OFF: 継続中'; ?>
+                    </button>
+                  </form>
+                </td>
                 <td data-label="LINE名"><?= h((string) ($row['line_name'] ?? '')); ?></td>
                 <td data-label="本名"><?= h((string) ($row['full_name'] ?? '')); ?></td>
                 <td data-label="メールアドレス"><?= h((string) ($row['email'] ?? '')); ?></td>
