@@ -120,7 +120,7 @@ if ($requestManagementExists) {
 
     $visibleRmColumns = array_values(array_filter(
         $rmColumns,
-        static fn (string $column): bool => !in_array($column, ['id', 'created_at', 'is_completed'], true)
+        static fn (string $column): bool => !in_array($column, ['id', 'created_at', 'is_completed', 'start_date'], true)
     ));
 
     $where = [];

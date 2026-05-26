@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 require_once 'config.php';
 
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 function h(?string $value): string
 {
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
@@ -99,12 +102,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sheet_id'], $_POST['i
         $upsertStmt->execute();
     }
 
-    $redirectQuery = $_GET;
-    unset($redirectQuery['page']);
-    $redirectUrl = 'support_end_users.php';
-    if ($redirectQuery !== []) {
-        $redirectUrl .= '?' . http_build_query($redirectQuery);
+    $isAjaxRequest = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
+    if ($isAjaxRequest) {
+        header('Content-Type: application/json; charset=UTF-8');
+        echo json_encode([
+            'ok' => true,
+            'sheet_id' => $sheetId,
+            'is_ended' => $isEnded,
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
     }
+
+    $redirectUrl = 'support_end_users.php?' . http_build_query($_GET);
     header('Location: ' . $redirectUrl);
     exit;
 }
@@ -217,16 +226,29 @@ require 'header.php';
   ?>
 
   <section class="main-panel">
-    <section class="panel content-panel table-wrap">
-      <form method="get" style="margin-bottom: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-        <input type="text" name="keyword" value="<?= h($keyword); ?>" placeholder="ユーザ検索（LINE名・本名・メール・セールス）" style="min-width: 280px;" />
-        <select name="status">
-          <option value="active" <?= $statusFilter === 'active' ? 'selected' : ''; ?>>継続中のみ</option>
-          <option value="ended" <?= $statusFilter === 'ended' ? 'selected' : ''; ?>>終了のみ</option>
-          <option value="all" <?= $statusFilter === 'all' ? 'selected' : ''; ?>>すべて</option>
-        </select>
-        <button type="submit" class="btn">検索</button>
+    <section id="filters" class="panel content-panel filters">
+      <form method="get" data-filter-form>
+        <div class="filter-grid">
+          <div class="field">
+            <label for="keyword">ユーザ検索</label>
+            <input id="keyword" type="text" name="keyword" value="<?= h($keyword); ?>" placeholder="LINE名・本名・メール・セールス">
+          </div>
+          <div class="field">
+            <label for="status">状態</label>
+            <select id="status" name="status">
+              <option value="active" <?= $statusFilter === 'active' ? 'selected' : ''; ?>>継続中のみ</option>
+              <option value="ended" <?= $statusFilter === 'ended' ? 'selected' : ''; ?>>終了のみ</option>
+              <option value="all" <?= $statusFilter === 'all' ? 'selected' : ''; ?>>すべて</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">検索する</button>
+        </div>
       </form>
+    </section>
+
+    <section class="panel content-panel table-wrap">
       <?php if ($rows === []): ?>
         <div class="empty">表示できるデータがありません。</div>
       <?php else: ?>
@@ -245,10 +267,10 @@ require 'header.php';
             <?php foreach ($rows as $row): ?>
               <tr>
                 <td data-label="状態">
-                  <form method="post" style="margin: 0; display: inline-flex; align-items: center; gap: 8px;">
+                  <form method="post" class="js-status-form" style="margin: 0; display: inline-flex; align-items: center; gap: 8px;">
                     <input type="hidden" name="sheet_id" value="<?= h((string) ($row['sheet_id'] ?? '')); ?>">
                     <input type="hidden" name="is_ended" value="<?= ((int) ($row['is_ended'] ?? 0) === 1) ? '0' : '1'; ?>">
-                    <button type="submit" class="btn btn-ghost" style="min-width: 84px;">
+                    <button type="submit" class="btn btn-ghost js-status-button" style="min-width: 84px;" data-state="<?= ((int) ($row['is_ended'] ?? 0) === 1) ? 'ended' : 'active'; ?>">
                       <?= ((int) ($row['is_ended'] ?? 0) === 1) ? 'ON: 終了' : 'OFF: 継続中'; ?>
                     </button>
                   </form>
@@ -279,4 +301,54 @@ require 'header.php';
     </section>
   </section>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.js-status-form').forEach(function (form) {
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      const button = form.querySelector('.js-status-button');
+      if (!button || button.disabled) {
+        return;
+      }
+
+      const formData = new FormData(form);
+      button.disabled = true;
+      button.textContent = '更新中...';
+
+      fetch('support_end_users.php?<?= h(http_build_query($_GET)); ?>', {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+      })
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error('failed');
+          }
+          return response.json();
+        })
+        .then(function (payload) {
+          const current = form.querySelector('input[name="is_ended"]');
+          if (!current || !payload || payload.ok !== true) {
+            throw new Error('invalid');
+          }
+          const newIsEnded = parseInt(current.value, 10) === 1;
+          button.dataset.state = newIsEnded ? 'ended' : 'active';
+          button.textContent = newIsEnded ? 'ON: 終了' : 'OFF: 継続中';
+          current.value = newIsEnded ? '0' : '1';
+        })
+        .catch(function () {
+          button.textContent = '更新失敗';
+          setTimeout(function () {
+            location.reload();
+          }, 600);
+        })
+        .finally(function () {
+          button.disabled = false;
+        });
+    });
+  });
+});
+</script>
 <?php require 'footer.php'; ?>
