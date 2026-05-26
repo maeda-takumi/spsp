@@ -37,6 +37,40 @@ function tableHasColumn(PDO $pdo, string $tableName, string $columnName): bool
     return (bool) $stmt->fetchColumn();
 }
 
+function getPendingRequestFlags(PDO $pdo): array
+{
+    $hasPendingRequest = false;
+    $hasOverduePendingRequest = false;
+
+    if (!tableHasColumn($pdo, 'request_management', 'is_completed')) {
+        return [$hasPendingRequest, $hasOverduePendingRequest];
+    }
+
+    if (tableHasColumn($pdo, 'request_management', 'send_date')) {
+        $pendingRequestStmt = $pdo->query(
+            'SELECT 1
+             FROM request_management
+             WHERE is_completed = 0
+               AND DATE(send_date) <= CURRENT_DATE()
+             LIMIT 1'
+        );
+        $overduePendingRequestStmt = $pdo->query(
+            'SELECT 1
+             FROM request_management
+             WHERE is_completed = 0
+               AND DATE(send_date) < CURRENT_DATE()
+             LIMIT 1'
+        );
+        $hasOverduePendingRequest = (bool) $overduePendingRequestStmt->fetchColumn();
+    } else {
+        $pendingRequestStmt = $pdo->query('SELECT 1 FROM request_management WHERE is_completed = 0 LIMIT 1');
+    }
+
+    $hasPendingRequest = (bool) $pendingRequestStmt->fetchColumn();
+
+    return [$hasPendingRequest, $hasOverduePendingRequest];
+}
+
 $pdo = db();
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 20;
@@ -45,6 +79,7 @@ $offset = ($page - 1) * $perPage;
 $supportEndColumnExists = tableHasColumn($pdo, 'request_management', 'support_end_date');
 $sendDateColumnExists = tableHasColumn($pdo, 'request_management', 'send_date');
 
+[$hasPendingRequest, $hasOverduePendingRequest] = getPendingRequestFlags($pdo);
 if (!$supportEndColumnExists && !$sendDateColumnExists) {
     $rows = [];
     $total = 0;
@@ -58,7 +93,6 @@ if (!$supportEndColumnExists && !$sendDateColumnExists) {
 
     $countSql = 'SELECT COUNT(*)
         FROM request_management rm
-        LEFT JOIN customer_sales_records csr ON rm.sheet_id = csr.sheet_id
         WHERE ' . $computedSupportEndDateSql . ' IS NOT NULL';
     $countStmt = $pdo->query($countSql);
     $total = (int) $countStmt->fetchColumn();
@@ -70,17 +104,22 @@ if (!$supportEndColumnExists && !$sendDateColumnExists) {
     }
 
     $sql = 'SELECT
-            rm.sheet_id,
             csr.line_name,
             csr.full_name,
             csr.email,
             csr.sales_staff,
-            ' . $computedSupportEndDateSql . ' AS support_end_date
-        FROM request_management rm
-        LEFT JOIN customer_sales_records csr ON rm.sheet_id = csr.sheet_id
-        WHERE ' . $computedSupportEndDateSql . ' IS NOT NULL
-        ORDER BY support_end_date ASC, rm.sheet_id ASC
-        LIMIT :limit OFFSET :offset';
+            target.support_end_date
+        FROM (
+            SELECT
+                rm.sheet_id,
+                ' . $computedSupportEndDateSql . ' AS support_end_date
+            FROM request_management rm
+            WHERE ' . $computedSupportEndDateSql . ' IS NOT NULL
+            ORDER BY support_end_date ASC, rm.sheet_id ASC
+            LIMIT :limit OFFSET :offset
+        ) AS target
+        LEFT JOIN customer_sales_records csr ON target.sheet_id = csr.sheet_id
+        ORDER BY target.support_end_date ASC, target.sheet_id ASC';
 
     $stmt = $pdo->prepare($sql);
     $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
@@ -96,7 +135,10 @@ require 'header.php';
 <div class="dashboard-shell panel dashboard-shell--support-end">
   <?php
   require_once 'sidebar.php';
-  renderSidebar('support_end_users');
+  renderSidebar('support_end_users', [
+      'hasPendingRequest' => $hasPendingRequest,
+      'hasOverduePendingRequest' => $hasOverduePendingRequest,
+  ]);
   ?>
 
   <section class="main-panel">

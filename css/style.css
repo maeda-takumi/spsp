@@ -295,7 +295,7 @@ body {
 }
 
 .side-panel--support-end {
-  background: linear-gradient(180deg, rgba(254, 243, 199, 0.55), rgba(253, 230, 138, 0.42));
+    background: linear-gradient(360deg, rgba(254, 243, 199, 0.55), rgb(255 204 0 / 42%));
 }
 .memo-panel {
   margin-top: 18px;
