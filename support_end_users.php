@@ -135,6 +135,7 @@ if (!$supportEndColumnExists && !$sendDateColumnExists) {
     $rows = [];
     $total = 0;
     $totalPages = 1;
+    $hasNextPage = false;
 } else {
     $computedSupportEndDateSql = $supportEndColumnExists && $sendDateColumnExists
         ? 'COALESCE(NULLIF(rm.support_end_date, \'\'), DATE_ADD(rm.send_date, INTERVAL 6 MONTH))'
@@ -158,29 +159,6 @@ if (!$supportEndColumnExists && !$sendDateColumnExists) {
 
     $whereSql = implode(' AND ', $where);
 
-    $countSql = 'SELECT COUNT(*)
-        FROM (
-            SELECT
-                rm.sheet_id,
-                ' . $computedSupportEndDateSql . ' AS support_end_date
-            FROM request_management rm
-        ) AS target
-        LEFT JOIN customer_sales_records csr ON target.sheet_id = csr.sheet_id
-        LEFT JOIN support_end_user_statuses ses ON target.sheet_id = ses.sheet_id
-        WHERE ' . $whereSql;
-
-    $countStmt = $pdo->prepare($countSql);
-    foreach ($bindings as $name => $value) {
-        $countStmt->bindValue($name, $value);
-    }
-    $countStmt->execute();
-    $total = (int) $countStmt->fetchColumn();
-    $totalPages = max(1, (int) ceil($total / $perPage));
-
-    if ($page > $totalPages) {
-        $page = $totalPages;
-        $offset = ($page - 1) * $perPage;
-    }
 
     $sql = 'SELECT
             target.sheet_id,
@@ -206,10 +184,16 @@ if (!$supportEndColumnExists && !$sendDateColumnExists) {
     foreach ($bindings as $name => $value) {
         $stmt->bindValue($name, $value);
     }
-    $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':limit', $perPage + 1, PDO::PARAM_INT);
     $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
     $stmt->execute();
     $rows = $stmt->fetchAll();
+    $hasNextPage = count($rows) > $perPage;
+    if ($hasNextPage) {
+        $rows = array_slice($rows, 0, $perPage);
+    }
+    $totalPages = $hasNextPage ? $page + 1 : $page;
+    $total = $offset + count($rows) + ($hasNextPage ? 1 : 0);
 }
 
 $pageTitle = 'SUP-SUP NEO サポート終了管理一覧';
@@ -295,8 +279,8 @@ require 'header.php';
         $nextUrl = 'support_end_users.php?' . http_build_query($query);
         ?>
         <a class="btn btn-ghost <?= $page <= 1 ? 'is-disabled' : ''; ?>" href="<?= $page <= 1 ? '#' : h($prevUrl); ?>">前へ</a>
-        <a class="btn btn-ghost <?= $page >= $totalPages ? 'is-disabled' : ''; ?>" href="<?= $page >= $totalPages ? '#' : h($nextUrl); ?>">次へ</a>
-        <span class="meta">全 <?= number_format($total); ?> 件 / <?= $page; ?> / <?= $totalPages; ?> ページ</span>
+        <a class="btn btn-ghost <?= !$hasNextPage ? 'is-disabled' : ''; ?>" href="<?= !$hasNextPage ? '#' : h($nextUrl); ?>">次へ</a>
+        <span class="meta"><?= $page; ?> ページ<?= $hasNextPage ? '（次のページあり）' : '（最終ページ）'; ?></span>
       </div>
     </section>
   </section>
