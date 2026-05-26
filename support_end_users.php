@@ -145,7 +145,14 @@ if (!$supportEndColumnExists && !$sendDateColumnExists) {
             ? 'NULLIF(rm.support_end_date, \'\')'
             : 'DATE_ADD(rm.send_date, INTERVAL 6 MONTH)');
 
-    $where = ['target.support_end_date IS NOT NULL'];
+    $where = [];
+    if ($supportEndColumnExists && $sendDateColumnExists) {
+        $where[] = "((rm.support_end_date IS NOT NULL AND rm.support_end_date <> '') OR rm.send_date IS NOT NULL)";
+    } elseif ($supportEndColumnExists) {
+        $where[] = "(rm.support_end_date IS NOT NULL AND rm.support_end_date <> '')";
+    } else {
+        $where[] = 'rm.send_date IS NOT NULL';
+    }
     $bindings = [];
 
     if ($statusFilter === 'active') {
@@ -163,23 +170,18 @@ if (!$supportEndColumnExists && !$sendDateColumnExists) {
 
 
     $sql = 'SELECT
-            target.sheet_id,
+            rm.sheet_id,
             csr.line_name,
             csr.full_name,
             csr.email,
             csr.sales_staff,
-            target.support_end_date,
+            ' . $computedSupportEndDateSql . ' AS support_end_date,
             COALESCE(ses.is_ended, 0) AS is_ended
-        FROM (
-            SELECT
-                rm.sheet_id,
-                ' . $computedSupportEndDateSql . ' AS support_end_date
-            FROM request_management rm
-        ) AS target
-        LEFT JOIN customer_sales_records csr ON target.sheet_id = csr.sheet_id
-        LEFT JOIN support_end_user_statuses ses ON target.sheet_id = ses.sheet_id
+        FROM request_management rm
+        LEFT JOIN customer_sales_records csr ON rm.sheet_id = csr.sheet_id
+        LEFT JOIN support_end_user_statuses ses ON rm.sheet_id = ses.sheet_id
         WHERE ' . $whereSql . '
-        ORDER BY target.support_end_date ASC, target.sheet_id ASC
+        ORDER BY support_end_date ASC, rm.sheet_id ASC
         LIMIT :limit OFFSET :offset';
 
     $stmt = $pdo->prepare($sql);
