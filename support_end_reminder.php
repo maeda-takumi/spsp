@@ -118,13 +118,30 @@ function sendSupportEndReminderIfNeeded(array $record, array $supportEndDateRows
     if (!is_array($latestRow)) {
         return false;
     }
+    $overrideSupportEndDate = trim((string) ($latestRow['support_end_date'] ?? ''));
+    $supportEndDateKey = '';
+    $supportEndDateTimestamp = false;
+    if ($overrideSupportEndDate !== '') {
+        $supportEndDateTimestamp = strtotime($overrideSupportEndDate);
+        if ($supportEndDateTimestamp !== false) {
+            $supportEndDateKey = date('Y-m-d', $supportEndDateTimestamp);
+        }
+    }
 
     $supportSendTimestamp = strtotime((string) ($latestRow['send_date'] ?? ''));
-    if ($supportSendTimestamp === false) {
+    if ($supportEndDateTimestamp === false && $supportSendTimestamp === false) {
         return false;
     }
 
-    $notifyAt = strtotime('+5 months', $supportSendTimestamp);
+    if ($supportEndDateTimestamp !== false) {
+        $notifyAt = strtotime('-1 month', $supportEndDateTimestamp);
+    } else {
+        $notifyAt = strtotime('+5 months', $supportSendTimestamp);
+        $supportEndDateTimestamp = strtotime('+6 months', $supportSendTimestamp);
+        if ($supportEndDateTimestamp !== false) {
+            $supportEndDateKey = date('Y-m-d', $supportEndDateTimestamp);
+        }
+    }
     if ($notifyAt === false || strtotime(date('Y-m-d')) !== $notifyAt) {
         return false;
     }
@@ -132,7 +149,8 @@ function sendSupportEndReminderIfNeeded(array $record, array $supportEndDateRows
     $logPath = __DIR__ . '/support_end_chatwork_notification_logs.json';
     $logs = readSupportEndReminderSettings($logPath);
     $sheetId = trim((string) ($record['sheet_id'] ?? ''));
-    $logKey = $sheetId . '_' . date('Y-m-d', $notifyAt);
+    $revisionKey = trim((string) ($latestRow['support_end_date_updated_at'] ?? ''));
+    $logKey = $sheetId . '_' . date('Y-m-d', $notifyAt) . '_' . $supportEndDateKey . '_' . $revisionKey;
     if (isset($logs[$logKey])) {
         return false;
     }

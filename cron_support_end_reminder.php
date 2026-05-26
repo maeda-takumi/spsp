@@ -15,7 +15,7 @@ function cronDb(): PDO
 }
 
 $pdo = cronDb();
-$sql = 'SELECT csr.sheet_id, csr.full_name, csr.line_name, csr.sales_staff, rm.send_date
+$sql = 'SELECT csr.sheet_id, csr.full_name, csr.line_name, csr.sales_staff, rm.send_date, seo.support_end_date, seo.updated_at AS support_end_date_updated_at
         FROM customer_sales_records csr
         INNER JOIN (
             SELECT sheet_id, MAX(send_date) AS send_date
@@ -23,7 +23,7 @@ $sql = 'SELECT csr.sheet_id, csr.full_name, csr.line_name, csr.sales_staff, rm.s
             WHERE send_date IS NOT NULL
               AND send_date <> ""
             GROUP BY sheet_id
-        ) rm ON rm.sheet_id = csr.sheet_id
+        LEFT JOIN support_end_date_overrides seo ON seo.sheet_id = csr.sheet_id
         WHERE csr.sales_staff IS NOT NULL
           AND csr.sales_staff <> ""';
 
@@ -40,9 +40,12 @@ foreach ($rows as $row) {
         'line_name' => (string) ($row['line_name'] ?? ''),
         'sales_staff' => (string) ($row['sales_staff'] ?? ''),
     ];
-    $supportEndDateRows = [['send_date' => (string) ($row['send_date'] ?? '')]];
     $sendDate = (string) ($row['send_date'] ?? '');
-    $supportEndDateRows = [['send_date' => $sendDate]];
+    $supportEndDateRows = [[
+        'send_date' => $sendDate,
+        'support_end_date' => (string) ($row['support_end_date'] ?? ''),
+        'support_end_date_updated_at' => (string) ($row['support_end_date_updated_at'] ?? ''),
+    ]];
 
     $sendTimestamp = strtotime($sendDate);
     $notifyAt = $sendTimestamp === false ? false : strtotime('+5 months', $sendTimestamp);
