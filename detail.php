@@ -880,6 +880,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $existingAttachments = $attachmentStmt->fetchAll();
             }
 
+            $notificationMessage = '';
             if ($errors === [] && $action === 'send_email') {
                 $selectedTemplate = null;
                 if ($templateId > 0) {
@@ -893,7 +894,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $notificationTemplate = DEFAULT_CHATWORK_MESSAGE_TEMPLATE;
                 }
 
-                $notificationMessage = '';
                 try {
                     $notificationMessage = renderChatworkMessageTemplate($notificationTemplate, [
                         'template_name' => (string) ($selectedTemplate['template_name'] ?? ''),
