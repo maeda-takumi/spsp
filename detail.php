@@ -1177,19 +1177,15 @@ require 'header.php';
 ?>
 <div class="glass-board" aria-hidden="true" style="display:none;"></div>
 <div class="dashboard-shell panel dashboard-shell--detail">
-  <aside class="side-panel">
-    <button type="button" class="sidebar-avatar-button" aria-label="アイコン画像を切り替える" data-sidebar-avatar-trigger>
-      <img class="avatar" src="img/human.png" alt="顧客詳細アイコン" loading="lazy" data-sidebar-avatar>
-      <img class="sidebar-avatar-effect" src="" alt="演出" loading="lazy" data-sidebar-avatar-effect aria-hidden="true">
-    </button>
-    <h1>Customer Detail</h1>
-    <p><?= h((string) ($record['line_name'] ?? '名称未設定')); ?></p>
-
-    <nav class="side-nav" aria-label="メニュー">
-      <a href="<?= h($indexBackUrl); ?>">一覧へ戻る</a>
-      <!-- <a href="#customer-info">顧客情報</a>
-      <a href="#writing-list">Writing一覧</a> -->
-    </nav>
+  <?php
+  require_once 'sidebar.php';
+  renderSidebar('detail', [
+      'lineName' => (string) ($record['line_name'] ?? '名称未設定'),
+      'detailBackUrl' => $indexBackUrl,
+      'hasPendingRequest' => false,
+      'hasOverduePendingRequest' => false,
+  ]);
+  ?>
     <section class="memo-panel">
       <div class="memo-tagging" data-tagging-root data-sheet-id="<?= h($sheetId); ?>">
         <div class="memo-tagging-controls">

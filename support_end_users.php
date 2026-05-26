@@ -94,15 +94,10 @@ require 'header.php';
 ?>
 <div class="glass-board" aria-hidden="true" style="display:none;"></div>
 <div class="dashboard-shell panel dashboard-shell--support-end">
-  <aside class="side-panel side-panel--support-end">
-    <h1>SUP-SUP NEO</h1>
-    <p>PAGES</p>
-    <nav class="side-nav" aria-label="メニュー">
-      <a href="index.php">顧客一覧</a>
-      <a href="request_management.php">送付依頼一覧</a>
-      <a class="is-current" href="support_end_users.php">サポート終了者一覧</a>
-    </nav>
-  </aside>
+  <?php
+  require_once 'sidebar.php';
+  renderSidebar('support_end_users');
+  ?>
 
   <section class="main-panel">
     <section class="panel content-panel table-wrap">

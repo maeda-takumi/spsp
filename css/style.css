@@ -282,17 +282,8 @@ body {
 }
 
 .side-nav a.is-current {
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.62);
-  box-shadow: 0 8px 18px rgba(15, 42, 102, 0.22);
-}
-
-.dashboard-shell--customer .side-nav a.is-current {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-}
-
-.dashboard-shell--request .side-nav a.is-current {
-  background: linear-gradient(135deg, #0f766e, #0d9488);
+  border: 1px solid #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
 }
 
 .side-panel--customer {
@@ -301,11 +292,6 @@ body {
 
 .side-panel--request {
     background: linear-gradient(329deg, rgba(210, 248, 239, 0.44), rgb(228 0 255 / 31%));
-}
-
-.dashboard-shell--support-end .side-nav a.is-current {
-  background: linear-gradient(135deg, #f59e0b, #facc15);
-  color: #1f2937;
 }
 
 .side-panel--support-end {
