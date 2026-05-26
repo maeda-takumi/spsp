@@ -22,34 +22,35 @@ function db(): PDO
     ]);
 }
 
-function tableHasColumn(PDO $pdo, string $tableName, string $columnName): bool
+function getTableColumns(PDO $pdo, string $tableName): array
 {
-    $stmt = $pdo->prepare(
-        'SELECT 1
-         FROM information_schema.COLUMNS
-         WHERE TABLE_SCHEMA = :schema
-           AND TABLE_NAME = :table_name
-           AND COLUMN_NAME = :column_name
-         LIMIT 1'
-    );
-    $stmt->bindValue(':schema', DB_NAME);
-    $stmt->bindValue(':table_name', $tableName);
-    $stmt->bindValue(':column_name', $columnName);
-    $stmt->execute();
+    $table = str_replace('`', '``', $tableName);
+    $stmt = $pdo->query('SHOW COLUMNS FROM `' . $table . '`');
 
-    return (bool) $stmt->fetchColumn();
+    if ($stmt === false) {
+        return [];
+    }
+
+    $columns = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $name = (string) ($row['Field'] ?? '');
+        if ($name !== '') {
+            $columns[] = $name;
+        }
+    }
+    return $columns;
 }
 
-function getPendingRequestFlags(PDO $pdo): array
+function getPendingRequestFlags(PDO $pdo, array $requestManagementColumns): array
 {
     $hasPendingRequest = false;
     $hasOverduePendingRequest = false;
 
-    if (!tableHasColumn($pdo, 'request_management', 'is_completed')) {
+    if (!in_array('is_completed', $requestManagementColumns, true)) {
         return [$hasPendingRequest, $hasOverduePendingRequest];
     }
 
-    if (tableHasColumn($pdo, 'request_management', 'send_date')) {
+    if (in_array('send_date', $requestManagementColumns, true)) {
         $pendingRequestStmt = $pdo->query(
             'SELECT 1
              FROM request_management
@@ -127,10 +128,11 @@ if (!in_array($statusFilter, ['active', 'ended', 'all'], true)) {
     $statusFilter = 'active';
 }
 
-$supportEndColumnExists = tableHasColumn($pdo, 'request_management', 'support_end_date');
-$sendDateColumnExists = tableHasColumn($pdo, 'request_management', 'send_date');
+$requestManagementColumns = getTableColumns($pdo, 'request_management');
+$supportEndColumnExists = in_array('support_end_date', $requestManagementColumns, true);
+$sendDateColumnExists = in_array('send_date', $requestManagementColumns, true);
 
-[$hasPendingRequest, $hasOverduePendingRequest] = getPendingRequestFlags($pdo);
+[$hasPendingRequest, $hasOverduePendingRequest] = getPendingRequestFlags($pdo, $requestManagementColumns);
 if (!$supportEndColumnExists && !$sendDateColumnExists) {
     $rows = [];
     $total = 0;
