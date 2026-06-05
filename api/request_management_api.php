@@ -204,11 +204,8 @@ try {
     $requestManagementId = (int) $pdo->lastInsertId();
 
     $mValueStmt = $pdo->prepare(
-        'INSERT INTO request_management_m_values (sheet_id, m_value)
-         VALUES (:sheet_id, :m_value)
-         ON DUPLICATE KEY UPDATE
-             m_value = VALUES(m_value),
-             updated_at = CURRENT_TIMESTAMP'
+        'INSERT IGNORE INTO request_management_m_values (sheet_id, m_value)
+         VALUES (:sheet_id, :m_value)'
     );
     $mValueStmt->bindValue(':sheet_id', $sheetId);
     $mValueStmt->bindValue(':m_value', $mValue);

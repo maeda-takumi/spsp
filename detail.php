@@ -589,6 +589,7 @@ if (!$record) {
 }
 
 $requestManagementInfo = null;
+$requestManagementMValue = '';
 $supportEndDateRows = [];
 $persistedSupportEndDate = [];
 $hasRequestManagementTable = tableExists($pdo, 'request_management');
@@ -629,6 +630,20 @@ if ($requestManagementId !== null && $hasRequestManagementTable) {
             $requestManagementInfo = $fetchedRequestManagementInfo;
         }
     }
+}
+if ($requestManagementInfo !== null
+    && tableExists($pdo, 'request_management_m_values')
+    && tableHasColumn($pdo, 'request_management_m_values', 'm_value')
+) {
+    $requestManagementMValueStmt = $pdo->prepare(
+        'SELECT m_value
+         FROM request_management_m_values
+         WHERE sheet_id = :sheet_id
+         LIMIT 1'
+    );
+    $requestManagementMValueStmt->bindValue(':sheet_id', $sheetId);
+    $requestManagementMValueStmt->execute();
+    $requestManagementMValue = trim((string) ($requestManagementMValueStmt->fetchColumn() ?: ''));
 }
 if ($hasRequestManagementTable && tableHasColumn($pdo, 'request_management', 'send_date')) {
     $supportEndDateStmt = $pdo->prepare(
@@ -845,9 +860,22 @@ $refundGuaranteeStatuses = fetchRefundGuaranteeStatuses($pdo, $recordSheetId);
 $mailSenderOptions = getMailSenderOptions();
 $defaultMailSenderKey = getDefaultMailSenderKey($mailSenderOptions);
 $requestedMailSenderKey = getOptionalQuery('mail_sender_key');
+$matchedMValueMailSenderKey = '';
+if ($requestManagementMValue !== '') {
+    foreach ($mailSenderOptions as $optionKey => $mailSenderOption) {
+        $mailSenderLabel = trim((string) ($mailSenderOption['label'] ?? $mailSenderOption['email'] ?? $optionKey));
+        if ($mailSenderLabel === $requestManagementMValue) {
+            $matchedMValueMailSenderKey = (string) $optionKey;
+            break;
+        }
+    }
+}
 $draftMailSenderKey = $requestedMailSenderKey !== null && isset($mailSenderOptions[$requestedMailSenderKey])
     ? $requestedMailSenderKey
-    : (string) ($existingDraft['mail_sender_key'] ?? '');
+    : $matchedMValueMailSenderKey;
+if ($draftMailSenderKey === '') {
+    $draftMailSenderKey = (string) ($existingDraft['mail_sender_key'] ?? '');
+}
 if ($draftMailSenderKey === '' || !isset($mailSenderOptions[$draftMailSenderKey])) {
     $draftMailFrom = (string) ($existingDraft['mail_from'] ?? '');
     foreach ($mailSenderOptions as $optionKey => $mailSenderOption) {
@@ -1579,6 +1607,8 @@ require 'header.php';
               <strong><?= h($requestSummaryMemo !== '' ? $requestSummaryMemo : '（未入力）'); ?></strong>
               <span class="meta-label">type</span>
               <strong><?= h($requestSummaryCurriculumType !== '' ? $requestSummaryCurriculumType : '（未設定）'); ?></strong>
+              <span class="meta-label">m_value</span>
+              <strong><?= h($requestManagementMValue !== '' ? $requestManagementMValue : '（未設定）'); ?></strong>
             </div>
           </div>
         <?php else: ?>
