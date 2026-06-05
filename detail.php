@@ -172,7 +172,7 @@ function saveMailSenderConfigRows(array $senderRows): void
     }
 }
 
-function upsertMailSenderConfig(string $key, string $label, string $email): void
+function upsertMailSenderConfig(string $key, string $label, string $email, string $originalKey = '', ?array $senderJsonFile = null): void
 {
     $senderDirectory = normalizeDownloadDirectoryPath($key);
     if ($senderDirectory === '') {
@@ -180,6 +180,29 @@ function upsertMailSenderConfig(string $key, string $label, string $email): void
     }
     if (!is_dir($senderDirectory) && !mkdir($senderDirectory, 0775, true) && !is_dir($senderDirectory)) {
         throw new RuntimeException('送付元JSONフォルダの作成に失敗しました。');
+    }
+
+    if ($senderJsonFile !== null && (int) ($senderJsonFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+        if ((int) ($senderJsonFile['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+            throw new RuntimeException('送付元JSONのアップロードに失敗しました。');
+        }
+
+        $originalName = trim((string) ($senderJsonFile['name'] ?? ''));
+        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        if ($extension !== 'json') {
+            throw new RuntimeException('送付元JSONは .json ファイルを選択してください。');
+        }
+
+        $tmpName = (string) ($senderJsonFile['tmp_name'] ?? '');
+        $rawJson = $tmpName !== '' && is_file($tmpName) ? file_get_contents($tmpName) : false;
+        if ($rawJson === false || !is_array(json_decode($rawJson, true))) {
+            throw new RuntimeException('送付元JSONの形式が不正です。');
+        }
+
+        $destination = __DIR__ . '/' . $senderDirectory . '/google_oauth_token.json';
+        if (!move_uploaded_file($tmpName, $destination)) {
+            throw new RuntimeException('送付元JSONの保存に失敗しました。');
+        }
     }
 
     $senderRowsByKey = [];
@@ -205,6 +228,10 @@ function upsertMailSenderConfig(string $key, string $label, string $email): void
             $existingRow['client_file'] = (string) $normalized['client_file'];
         }
         $senderRowsByKey[(string) $normalized['key']] = $existingRow;
+    }
+
+    if ($originalKey !== '' && $originalKey !== $key) {
+        unset($senderRowsByKey[$originalKey]);
     }
 
     $senderRowsByKey[$key] = [
@@ -873,13 +900,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'save_mail_sender') {
         $senderKey = trim((string) ($_POST['sender_key'] ?? ''));
+        $senderOriginalKey = trim((string) ($_POST['sender_original_key'] ?? ''));
         $senderLabel = trim((string) ($_POST['sender_label'] ?? ''));
         $senderEmail = trim((string) ($_POST['sender_email'] ?? ''));
+        $senderJsonFile = $_FILES['sender_json_file'] ?? null;
 
         if ($senderKey === '') {
             $errors[] = '送付元キーを入力してください。';
         } elseif (!preg_match('/\A[A-Za-z0-9_\-]+\z/', $senderKey)) {
             $errors[] = '送付元キーは半角英数字・アンダースコア・ハイフンで入力してください。';
+        }
+        if ($senderOriginalKey !== '' && !preg_match('/\A[A-Za-z0-9_\-]+\z/', $senderOriginalKey)) {
+            $errors[] = '編集対象の送付元キーが不正です。';
         }
         if ($senderLabel === '') {
             $errors[] = '表示名を入力してください。';
@@ -892,7 +924,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($errors === []) {
             try {
-                upsertMailSenderConfig($senderKey, $senderLabel, $senderEmail);
+                upsertMailSenderConfig($senderKey, $senderLabel, $senderEmail, $senderOriginalKey, is_array($senderJsonFile) ? $senderJsonFile : null);
                 header('Location: ' . buildDetailUrl(['sender_saved' => '1', 'mail_sender_key' => $senderKey, 'refresh' => (string) time()], 'email-compose'));
                 exit;
             } catch (Throwable $e) {
@@ -1649,9 +1681,8 @@ require 'header.php';
                         </option>
                       <?php endforeach; ?>
                     </select>
-                    <button type="button" class="btn btn-ghost" data-open-modal="mail-sender-form-modal">新しい送付元を追加</button>
+                    <button type="button" class="btn btn-ghost" data-open-modal="mail-sender-form-modal">送付元を編集</button>
                   </div>
-                  <p class="muted">キーと同じ名前の <code>download/send_1</code> などのフォルダを送信JSON置き場として使います。</p>
                 </div>
                 <div class="field">
                   <label for="mail_to">宛先</label>
@@ -2011,23 +2042,45 @@ require 'header.php';
 <div class="modal" id="mail-sender-form-modal" hidden>
   <div class="modal-dialog panel content-panel">
     <div class="section-head">
-      <h3>送付元追加</h3>
+      <h3>送付元編集</h3>
       <button type="button" class="btn btn-ghost" data-close-modal>閉じる</button>
     </div>
-    <form method="post" class="template-item">
+    <form method="post" class="template-item" enctype="multipart/form-data" data-mail-sender-form>
       <input type="hidden" name="action" value="save_mail_sender">
+      <input type="hidden" name="sender_original_key" value="<?= h($currentAction === 'save_mail_sender' ? (string) ($_POST['sender_original_key'] ?? '') : ''); ?>" data-mail-sender-original-key>
+      <div class="field">
+        <label for="sender_edit_target">編集する送付元</label>
+        <select id="sender_edit_target" data-mail-sender-select>
+          <option value="">新しい送付元を追加</option>
+          <?php foreach ($mailSenderOptions as $senderKey => $mailSenderOption): ?>
+            <option
+              value="<?= h((string) $senderKey); ?>"
+              data-sender-key="<?= h((string) $senderKey); ?>"
+              data-sender-label="<?= h((string) ($mailSenderOption['label'] ?? $mailSenderOption['email'] ?? $senderKey)); ?>"
+              data-sender-email="<?= h((string) ($mailSenderOption['email'] ?? '')); ?>"
+            >
+              <?= h((string) ($mailSenderOption['label'] ?? $mailSenderOption['email'] ?? $senderKey)); ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
       <div class="field">
         <label for="sender_key">キー</label>
-        <input id="sender_key" type="text" name="sender_key" value="<?= h($currentAction === 'save_mail_sender' ? (string) ($_POST['sender_key'] ?? '') : 'send_1'); ?>" pattern="[A-Za-z0-9_-]+" required>
-        <p class="muted">例: <code>send_1</code>。保存後は <code>download/send_1/google_oauth_token.json</code> を使います。</p>
+        <input id="sender_key" type="text" name="sender_key" value="<?= h($currentAction === 'save_mail_sender' ? (string) ($_POST['sender_key'] ?? '') : 'send_1'); ?>" pattern="[A-Za-z0-9_-]+" required data-mail-sender-key>
+        <p class="muted">例: <code>send_1</code></p>
       </div>
       <div class="field">
         <label for="sender_label">表示名</label>
-        <input id="sender_label" type="text" name="sender_label" value="<?= h($currentAction === 'save_mail_sender' ? (string) ($_POST['sender_label'] ?? '') : MAIL_SENDER); ?>" required>
+        <input id="sender_label" type="text" name="sender_label" value="<?= h($currentAction === 'save_mail_sender' ? (string) ($_POST['sender_label'] ?? '') : MAIL_SENDER); ?>" required data-mail-sender-label>
       </div>
       <div class="field">
         <label for="sender_email">メールアドレス</label>
-        <input id="sender_email" type="email" name="sender_email" value="<?= h($currentAction === 'save_mail_sender' ? (string) ($_POST['sender_email'] ?? '') : MAIL_SENDER); ?>" required>
+        <input id="sender_email" type="email" name="sender_email" value="<?= h($currentAction === 'save_mail_sender' ? (string) ($_POST['sender_email'] ?? '') : MAIL_SENDER); ?>" required data-mail-sender-email>
+      </div>
+      <div class="field">
+        <label for="sender_json_file">送付元JSON</label>
+        <input id="sender_json_file" type="file" name="sender_json_file" accept="application/json,.json">
+        <p class="muted">選択したJSONは保存時に <code>download/入力したキー/google_oauth_token.json</code> として保存されます。既存のJSONを変更しない場合は未選択のまま保存してください。</p>
       </div>
       <div class="actions">
         <button class="btn btn-primary" type="submit">保存</button>

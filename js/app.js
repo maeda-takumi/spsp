@@ -460,6 +460,14 @@
         }
       }
 
+      if (modalId === 'mail-sender-form-modal') {
+        const senderSelect = modal.querySelector('[data-mail-sender-select]');
+        const currentSenderSelect = document.getElementById('mail_sender_key');
+        if (senderSelect && currentSenderSelect) {
+          senderSelect.value = currentSenderSelect.value || '';
+          senderSelect.dispatchEvent(new Event('change'));
+        }
+      }
       if (modalId === 'template-form-modal') {
         const mode = button.getAttribute('data-template-mode') || 'create';
         const templateId = button.getAttribute('data-template-id') || '';
@@ -540,6 +548,61 @@
     });
   });
 
+  document.querySelectorAll('[data-mail-sender-form]').forEach((form) => {
+    const senderSelect = form.querySelector('[data-mail-sender-select]');
+    const originalKeyNode = form.querySelector('[data-mail-sender-original-key]');
+    const keyNode = form.querySelector('[data-mail-sender-key]');
+    const labelNode = form.querySelector('[data-mail-sender-label]');
+    const emailNode = form.querySelector('[data-mail-sender-email]');
+    const fileNode = form.querySelector('input[name="sender_json_file"]');
+
+    const resetForCreate = () => {
+      if (originalKeyNode) {
+        originalKeyNode.value = '';
+      }
+      if (keyNode) {
+        keyNode.value = 'send_1';
+      }
+      if (labelNode) {
+        labelNode.value = '';
+      }
+      if (emailNode) {
+        emailNode.value = '';
+      }
+      if (fileNode) {
+        fileNode.value = '';
+      }
+    };
+
+    if (!senderSelect) {
+      return;
+    }
+
+    senderSelect.addEventListener('change', () => {
+      const selectedOption = senderSelect.selectedOptions.length > 0 ? senderSelect.selectedOptions[0] : null;
+      const selectedKey = selectedOption ? selectedOption.getAttribute('data-sender-key') || '' : '';
+      if (!selectedKey || !selectedOption) {
+        resetForCreate();
+        return;
+      }
+
+      if (originalKeyNode) {
+        originalKeyNode.value = selectedKey;
+      }
+      if (keyNode) {
+        keyNode.value = selectedKey;
+      }
+      if (labelNode) {
+        labelNode.value = selectedOption.getAttribute('data-sender-label') || '';
+      }
+      if (emailNode) {
+        emailNode.value = selectedOption.getAttribute('data-sender-email') || '';
+      }
+      if (fileNode) {
+        fileNode.value = '';
+      }
+    });
+  });
   document.querySelectorAll('[data-close-modal]').forEach((button) => {
     button.addEventListener('click', () => {
       closeModal(button.closest('.modal'));
