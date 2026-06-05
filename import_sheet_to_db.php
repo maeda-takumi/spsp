@@ -541,6 +541,8 @@ try {
 
     $stagingInserted = 0;
     $skippedEmptySheetId = 0;
+    $skippedDuplicateSheetId = 0;
+    $seenSheetIds = [];
     foreach (array_slice($values, 1) as $index => $row) {
         if (count(array_filter($row, static fn($v) => trim((string) $v) !== '')) === 0) {
             continue;
@@ -583,6 +585,13 @@ try {
             $skippedEmptySheetId++;
             continue;
         }
+        $sheetId = (string) $params['sheet_id'];
+        if (isset($seenSheetIds[$sheetId])) {
+            $skippedDuplicateSheetId++;
+            continue;
+        }
+        $seenSheetIds[$sheetId] = true;
+
         try {
 
             $stagingInsertStmt->execute($params);
@@ -618,6 +627,7 @@ try {
         . ' upsert_affected_rows=' . $upserted
         . ' target_deleted_missing_rows=' . $deletedFromTarget
         . ' skipped_empty_sheet_id_rows=' . $skippedEmptySheetId
+        . ' skipped_duplicate_sheet_id_rows=' . $skippedDuplicateSheetId
         . ' db_rows=' . $importedCount;
     respondAndExit($completedMessage, 200);
 } catch (Throwable $e) {
