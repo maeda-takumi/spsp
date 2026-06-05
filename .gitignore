@@ -3,3 +3,4 @@ venv
 *.log
 *.csv
 oauth_gmail_token.php
+uploads/

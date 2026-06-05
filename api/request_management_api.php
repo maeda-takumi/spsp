@@ -132,6 +132,20 @@ function ensureRequestManagementTable(PDO $pdo): void
     }
     // start_date カラムは support_end_date_overrides 側に統合したため、ここでの自動追加処理は撤去
 }
+function ensureRequestManagementMValuesTable(PDO $pdo): void
+{
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS request_management_m_values (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            sheet_id VARCHAR(100) NOT NULL,
+            m_value VARCHAR(255) NOT NULL DEFAULT "",
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uniq_sheet_id (sheet_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+}
 function ensureSupportEndDateOverridesTable(PDO $pdo): void
 {
     $pdo->exec(
@@ -160,6 +174,7 @@ $requestType = normalizeField($input, 'request_type');
 $curriculumType = normalizeField($input, 'curriculum_type');
 $sendDate = normalizeField($input, 'send_date');
 $memo = normalizeField($input, 'memo');
+$mValue = normalizeField($input, 'm_value');
 
 if ($sheetId === '' || $documentType === '' || $requestType === '') {
     apiFail('sheet_id / document_type / request_type は必須です。');
@@ -172,6 +187,7 @@ if (!ctype_digit($sheetId)) {
 try {
     $pdo = apiDb();
     ensureRequestManagementTable($pdo);
+    ensureRequestManagementMValuesTable($pdo);
     ensureSupportEndDateOverridesTable($pdo);
 
     $stmt = $pdo->prepare(
@@ -185,6 +201,18 @@ try {
     $stmt->bindValue(':send_date', $sendDate === '' ? null : $sendDate, $sendDate === '' ? PDO::PARAM_NULL : PDO::PARAM_STR);
     $stmt->bindValue(':memo', $memo);
     $stmt->execute();
+    $requestManagementId = (int) $pdo->lastInsertId();
+
+    $mValueStmt = $pdo->prepare(
+        'INSERT INTO request_management_m_values (sheet_id, m_value)
+         VALUES (:sheet_id, :m_value)
+         ON DUPLICATE KEY UPDATE
+             m_value = VALUES(m_value),
+             updated_at = CURRENT_TIMESTAMP'
+    );
+    $mValueStmt->bindValue(':sheet_id', $sheetId);
+    $mValueStmt->bindValue(':m_value', $mValue);
+    $mValueStmt->execute();
 
     // 目次面談の依頼のみ、サポート開始日(=送付日)とサポート終了日(=送付日+6ヶ月)を
     // support_end_date_overrides に保存
@@ -207,7 +235,7 @@ try {
     apiRespond([
         'ok' => true,
         'message' => 'request_management に保存しました。',
-        'id' => (int) $pdo->lastInsertId(),
+        'id' => $requestManagementId,
     ]);
 } catch (PDOException $e) {
     apiFail('DBエラーが発生しました。', 500);

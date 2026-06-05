@@ -121,6 +121,17 @@ CREATE TABLE customer_sales_record_email_send_logs (
         ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+CREATE TABLE IF NOT EXISTS request_management_m_values (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    sheet_id VARCHAR(100) NOT NULL,
+    m_value VARCHAR(255) NOT NULL DEFAULT '' COMMENT '依頼用シートM列の値',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_sheet_id (sheet_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS chatwork_mention_masters (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
