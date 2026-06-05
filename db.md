@@ -4,6 +4,7 @@ CREATE TABLE customer_sales_records (
     sheet_id VARCHAR(100) NOT NULL COMMENT 'スプシのID',
     serial_no INT NULL COMMENT '通し番号',
 
+
     sales_year_month CHAR(7) NULL COMMENT 'YYYY-MM',
     payment_year_month CHAR(7) NULL COMMENT 'YYYY-MM',
 
