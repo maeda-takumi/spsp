@@ -1,5 +1,0 @@
-venv
-*.json
-*.log
-*.csv
-oauth_gmail_token.php

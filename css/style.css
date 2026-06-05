@@ -244,6 +244,7 @@ body {
   border-radius: 12px;
   padding: 9px 12px;
   background: rgba(255, 255, 255, 0.4);
+  position:relative;
 }
 
 .side-nav__request-link {
@@ -479,7 +480,12 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
 }
-
+  .filter-grid-column {
+      display: flex;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      flex-direction: column;
+  }
 .field label {
   display: block;
   margin-bottom: 6px;

@@ -197,6 +197,7 @@ if ($requestManagementExists) {
 $pageTitle = 'SUP-SUP NEO 送付依頼一覧';
 require 'header.php';
 ?>
+<?php require_once 'sidebar.php'; $hasUpcomingSupportEnd = getSupportEndAlertFlag($pdo); ?>
 <div class="glass-board" aria-hidden="true" style="display:none;"></div>
 <div class="dashboard-shell panel dashboard-shell--request">
   <aside class="side-panel side-panel--request">
@@ -205,7 +206,12 @@ require 'header.php';
     <nav class="side-nav" aria-label="メニュー">
       <a href="index.php">顧客一覧</a>
       <a class="is-current" href="request_management.php">送付依頼一覧</a>
-      <a href="support_end_users.php">サポート終了管理一覧</a>
+      <a href="support_end_users.php">
+        <span>サポート終了管理一覧</span>
+        <?php if ($hasUpcomingSupportEnd): ?>
+          <img class="side-nav__alert-icon" src="img/alert.png" alt="サポート終了予定あり" loading="lazy">
+        <?php endif; ?>
+      </a>
       <p>Application</p>
       <div class="side-nav__app-link">
         <a href="https://totalappworks.com/support_aori/" target="_blank" rel="noopener noreferrer">Bull-Fight</a>

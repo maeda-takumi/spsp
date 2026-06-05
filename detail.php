@@ -416,18 +416,9 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS support_end_date_overrides (
     PRIMARY KEY (id),
     UNIQUE KEY uniq_sheet_id (sheet_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
-$pdo->exec('CREATE TABLE IF NOT EXISTS support_end_dates (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    sheet_id VARCHAR(100) NOT NULL,
-    support_end_date DATE NOT NULL,
-    source_send_date DATE NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    UNIQUE KEY uniq_sheet_id (sheet_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
 try {
-    $persistedSupportEndDateStmt = $pdo->prepare('SELECT support_end_date, source_send_date, updated_at FROM support_end_dates WHERE sheet_id = :sheet_id LIMIT 1');
+    // サポート終了日は support_end_date_overrides に統一して管理
+    $persistedSupportEndDateStmt = $pdo->prepare('SELECT support_end_date, updated_at FROM support_end_date_overrides WHERE sheet_id = :sheet_id LIMIT 1');
     $persistedSupportEndDateStmt->bindValue(':sheet_id', (string) $sheetId);
     $persistedSupportEndDateStmt->execute();
     $persistedSupportEndDate = $persistedSupportEndDateStmt->fetch() ?: [];
@@ -1297,57 +1288,6 @@ require 'header.php';
       </section>
 
       <div class="detail-right-stack">
-        <section class="panel content-panel detail-panel">
-	          <div class="section-head"><h2>サポート終了日管理</h2><div class="section-head-actions"><button type="button" class="btn btn-ghost" data-open-modal="support-end-date-modal">変更する</button><button type="button" class="btn btn-icon" data-open-modal="support-end-chatwork-settings-modal" aria-label="サポート終了通知設定"><img src="img/option.png" alt="" loading="lazy"></button></div></div>
-            <?php if (isset($_GET['support_end_date_saved'])): ?>
-              <p class="notice">サポート終了日を保存しました。</p>
-            <?php endif; ?>
-	          <?php if ($supportEndDateRows !== []): ?>
-	            <div class="request-management-summary" aria-label="サポート終了日">
-	              <div class="request-management-summary-main">
-	                <?php
-                    $latestSupportEndDateRow = $supportEndDateRows[0] ?? [];
-                    $supportSendRawDate = (string) ($requestManagementInfo['send_date'] ?? ($latestSupportEndDateRow['send_date'] ?? ''));
-                    $supportSendDate = '';
-                    $calculatedSupportEndDate = '';
-                    if ($supportSendRawDate !== '') {
-                        $supportSendTimestamp = strtotime($supportSendRawDate);
-                        if ($supportSendTimestamp !== false) {
-                            $supportSendDate = date('Y/m/d', $supportSendTimestamp);
-                            $calculatedSupportEndDate = date('Y/m/d', strtotime('+6 months', $supportSendTimestamp));
-                        } else {
-                            $supportSendDate = (string) preg_replace('/\s.+$/', '', $supportSendRawDate);
-                        }
-                    }
-                    $persistedSupportEndDateRaw = (string) ($persistedSupportEndDate['support_end_date'] ?? '');
-                    if ($persistedSupportEndDateRaw !== '') {
-                        $persistedTimestamp = strtotime($persistedSupportEndDateRaw);
-                        if ($persistedTimestamp !== false) {
-                            $calculatedSupportEndDate = date('Y/m/d', $persistedTimestamp);
-                        }
-                    }
-                    $overrideSupportEndDateRaw = (string) ($supportEndDateOverride['support_end_date'] ?? '');
-                    $overrideSupportEndDate = '';
-                    if ($overrideSupportEndDateRaw !== '') {
-                        $overrideTimestamp = strtotime($overrideSupportEndDateRaw);
-                        $overrideSupportEndDate = $overrideTimestamp !== false ? date('Y/m/d', $overrideTimestamp) : $overrideSupportEndDateRaw;
-                    }
-                  ?>
-	                  <span>
-	                    <span class="meta-label">サポート終了日</span>
-	                    <strong><?= h($overrideSupportEndDate !== '' ? $overrideSupportEndDate : ($calculatedSupportEndDate !== '' ? $calculatedSupportEndDate : '（算出不可）')); ?></strong>
-	                    <span class="meta-label">基準送信日</span>
-	                    <strong><?= h($supportSendDate !== '' ? $supportSendDate : '（未設定）'); ?></strong>
-	                  </span>
-                    <?php if ($overrideSupportEndDate !== ''): ?>
-                    <span><span class="meta-label">終了日の手動変更</span><strong>有効</strong></span>
-                    <?php endif; ?>
-	              </div>
-	            </div>
-          <?php else: ?>
-            <p class="meta">送信日がないため、サポート終了日は表示できません。</p>
-          <?php endif; ?>
-        </section>
         <section id="email-compose" class="panel content-panel detail-panel">
           <div class="section-head">
             <h2>メール作成</h2>

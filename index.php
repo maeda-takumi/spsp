@@ -185,6 +185,7 @@ require 'header.php';
   renderSidebar('index', [
       'hasPendingRequest' => $hasPendingRequest,
       'hasOverduePendingRequest' => $hasOverduePendingRequest,
+      'hasUpcomingSupportEnd' => getSupportEndAlertFlag($pdo),
   ]);
   ?>
 

@@ -2,10 +2,32 @@
 
 declare(strict_types=1);
 
+/**
+ * サイドバー「サポート終了管理一覧」のアラート画像表示フラグを取得。
+ * 今日+30日に該当する support_end_date が1件でも存在するとtrue。
+ */
+function getSupportEndAlertFlag(PDO $pdo): bool
+{
+    try {
+        $stmt = $pdo->query(
+            "SELECT 1 FROM support_end_date_overrides
+             WHERE support_end_date = DATE_ADD(CURRENT_DATE(), INTERVAL 30 DAY)
+             LIMIT 1"
+        );
+        if ($stmt === false) {
+            return false;
+        }
+        return (bool) $stmt->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 function renderSidebar(string $currentPage, array $options = []): void
 {
     $hasPendingRequest = (bool) ($options['hasPendingRequest'] ?? false);
     $hasOverduePendingRequest = (bool) ($options['hasOverduePendingRequest'] ?? false);
+    $hasUpcomingSupportEnd = (bool) ($options['hasUpcomingSupportEnd'] ?? false);
     $lineName = (string) ($options['lineName'] ?? '');
     $detailBackUrl = (string) ($options['detailBackUrl'] ?? '');
 
@@ -59,6 +81,9 @@ function renderSidebar(string $currentPage, array $options = []): void
             <span><?= h((string) $link['label']); ?></span>
             <?php if ($link['key'] === 'request_management' && $hasPendingRequest): ?>
               <img class="side-nav__alert-icon" src="<?= $hasOverduePendingRequest ? 'img/dokuro.png' : 'img/alert.png'; ?>" alt="未完了の送付依頼あり" loading="lazy">
+            <?php endif; ?>
+            <?php if ($link['key'] === 'support_end_users' && $hasUpcomingSupportEnd): ?>
+              <img class="side-nav__alert-icon" src="img/alert.png" alt="サポート終了予定あり" loading="lazy">
             <?php endif; ?>
           </a>
         <?php endforeach; ?>

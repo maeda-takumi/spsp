@@ -18,7 +18,7 @@ function readSupportEndReminderSettings(string $settingsPath): array
     return is_array($decoded) ? $decoded : [];
 }
 
-function sendSupportEndChatworkNotification(string $roomId, string $messageBody, array $mentionChatworkIds = []): void
+function sendSupportEndChatworkNotification(string $roomId, string $messageBody, array $mentionChatworkIds = [], string $apiKeyOverride = ''): void
 {
     $roomId = trim($roomId);
     if ($roomId === '' || !preg_match('/^\d+$/', $roomId)) {
@@ -39,6 +39,8 @@ function sendSupportEndChatworkNotification(string $roomId, string $messageBody,
         return;
     }
 
+    $apiKeyToUse = $apiKeyOverride !== '' ? $apiKeyOverride : CHATWORK_API_KEY;
+
     $curl = curl_init('https://api.chatwork.com/v2/rooms/' . rawurlencode($roomId) . '/messages');
     if ($curl === false) {
         throw new RuntimeException('Chatwork通知の初期化に失敗しました。');
@@ -49,7 +51,7 @@ function sendSupportEndChatworkNotification(string $roomId, string $messageBody,
         CURLOPT_TIMEOUT => 20,
         CURLOPT_POST => true,
         CURLOPT_HTTPHEADER => [
-            'X-ChatWorkToken: ' . CHATWORK_API_KEY,
+            'X-ChatWorkToken: ' . $apiKeyToUse,
             'Content-Type: application/x-www-form-urlencoded',
         ],
         CURLOPT_POSTFIELDS => http_build_query([
