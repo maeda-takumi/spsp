@@ -93,6 +93,130 @@ function getLegacyMailSenderOption(): array
     ];
 }
 
+function readMailSenderConfigRows(): array
+{
+    if (!is_file(MAIL_SENDER_CONFIG_FILE)) {
+        return [];
+    }
+
+    $raw = file_get_contents(MAIL_SENDER_CONFIG_FILE);
+    if ($raw === false) {
+        return [];
+    }
+
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        return [];
+    }
+
+    $senderRows = $decoded['senders'] ?? $decoded;
+    return is_array($senderRows) ? $senderRows : [];
+}
+
+function normalizeMailSenderConfigRow(array $senderRow): ?array
+{
+    $email = trim((string) ($senderRow['email'] ?? ''));
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return null;
+    }
+
+    $key = trim((string) ($senderRow['key'] ?? ''));
+    if ($key === '') {
+        $key = strtolower((string) preg_replace('/[^A-Za-z0-9_\-]+/', '_', $email));
+    }
+    if (!preg_match('/\A[A-Za-z0-9_\-]+\z/', $key)) {
+        return null;
+    }
+
+    $senderDirectory = normalizeDownloadDirectoryPath((string) ($senderRow['directory'] ?? $senderRow['dir'] ?? $senderRow['folder'] ?? ''));
+    $tokenFile = normalizeDownloadRelativePath((string) ($senderRow['token_file'] ?? $senderRow['tokenFile'] ?? ''));
+    if ($tokenFile === '' && $senderDirectory !== '') {
+        $tokenFile = buildDownloadSenderFilePath($senderDirectory, 'google_oauth_token.json');
+    }
+    if ($tokenFile === '') {
+        return null;
+    }
+
+    $clientFile = normalizeDownloadRelativePath((string) ($senderRow['client_file'] ?? $senderRow['clientFile'] ?? ''));
+    if ($clientFile === '' && $senderDirectory !== '') {
+        $clientFile = buildDownloadSenderFilePath($senderDirectory, 'google_oauth_client_secret.json');
+    }
+    if ($clientFile === '') {
+        $clientFile = GOOGLE_OAUTH_CLIENT_FILE;
+    }
+
+    return [
+        'key' => $key,
+        'label' => trim((string) ($senderRow['label'] ?? '')) ?: $email,
+        'email' => $email,
+        'directory' => $senderDirectory,
+        'token_file' => $tokenFile,
+        'client_file' => $clientFile,
+    ];
+}
+
+function saveMailSenderConfigRows(array $senderRows): void
+{
+    $configDirectory = dirname(MAIL_SENDER_CONFIG_FILE);
+    if (!is_dir($configDirectory) && !mkdir($configDirectory, 0775, true) && !is_dir($configDirectory)) {
+        throw new RuntimeException('送付元設定フォルダの作成に失敗しました。');
+    }
+
+    $json = json_encode(['senders' => array_values($senderRows)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+    if (!is_string($json)) {
+        throw new RuntimeException('送付元設定JSONの作成に失敗しました。');
+    }
+
+    if (file_put_contents(MAIL_SENDER_CONFIG_FILE, $json . "\n", LOCK_EX) === false) {
+        throw new RuntimeException('送付元設定JSONの保存に失敗しました。');
+    }
+}
+
+function upsertMailSenderConfig(string $key, string $label, string $email): void
+{
+    $senderDirectory = normalizeDownloadDirectoryPath($key);
+    if ($senderDirectory === '') {
+        throw new RuntimeException('送付元キーからフォルダパスを作成できません。');
+    }
+    if (!is_dir($senderDirectory) && !mkdir($senderDirectory, 0775, true) && !is_dir($senderDirectory)) {
+        throw new RuntimeException('送付元JSONフォルダの作成に失敗しました。');
+    }
+
+    $senderRowsByKey = [];
+    foreach (readMailSenderConfigRows() as $senderRow) {
+        if (!is_array($senderRow)) {
+            continue;
+        }
+
+        $normalized = normalizeMailSenderConfigRow($senderRow);
+        if ($normalized === null) {
+            continue;
+        }
+
+        $existingRow = [
+            'key' => (string) $normalized['key'],
+            'label' => (string) $normalized['label'],
+            'email' => (string) $normalized['email'],
+        ];
+        if ((string) $normalized['directory'] !== '') {
+            $existingRow['directory'] = preg_replace('#\Adownload/#', '', (string) $normalized['directory']);
+        } else {
+            $existingRow['token_file'] = (string) $normalized['token_file'];
+            $existingRow['client_file'] = (string) $normalized['client_file'];
+        }
+        $senderRowsByKey[(string) $normalized['key']] = $existingRow;
+    }
+
+    $senderRowsByKey[$key] = [
+        'key' => $key,
+        'label' => $label !== '' ? $label : $email,
+        'email' => $email,
+        'directory' => $key,
+    ];
+
+    saveMailSenderConfigRows($senderRowsByKey);
+}
+
 function getMailSenderOptions(): array
 {
     $legacySender = getLegacyMailSenderOption();
@@ -100,64 +224,18 @@ function getMailSenderOptions(): array
         return [$legacySender['key'] => $legacySender];
     }
 
-    $raw = file_get_contents(MAIL_SENDER_CONFIG_FILE);
-    if ($raw === false) {
-        return [$legacySender['key'] => $legacySender];
-    }
-
-    $decoded = json_decode($raw, true);
-    if (!is_array($decoded)) {
-        return [$legacySender['key'] => $legacySender];
-    }
-
-    $senderRows = $decoded['senders'] ?? $decoded;
-    if (!is_array($senderRows)) {
-        return [$legacySender['key'] => $legacySender];
-    }
-
     $senders = [];
-    foreach ($senderRows as $senderRow) {
+    foreach (readMailSenderConfigRows() as $senderRow) {
         if (!is_array($senderRow)) {
             continue;
         }
 
-        $email = trim((string) ($senderRow['email'] ?? ''));
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $normalized = normalizeMailSenderConfigRow($senderRow);
+        if ($normalized === null) {
             continue;
         }
 
-        $key = trim((string) ($senderRow['key'] ?? ''));
-        if ($key === '') {
-            $key = strtolower((string) preg_replace('/[^A-Za-z0-9_\-]+/', '_', $email));
-        }
-        if (!preg_match('/\A[A-Za-z0-9_\-]+\z/', $key)) {
-            continue;
-        }
-
-        $senderDirectory = normalizeDownloadDirectoryPath((string) ($senderRow['directory'] ?? $senderRow['dir'] ?? $senderRow['folder'] ?? ''));
-        $tokenFile = normalizeDownloadRelativePath((string) ($senderRow['token_file'] ?? $senderRow['tokenFile'] ?? ''));
-        if ($tokenFile === '' && $senderDirectory !== '') {
-            $tokenFile = buildDownloadSenderFilePath($senderDirectory, 'google_oauth_token.json');
-        }
-        if ($tokenFile === '') {
-            continue;
-        }
-
-        $clientFile = normalizeDownloadRelativePath((string) ($senderRow['client_file'] ?? $senderRow['clientFile'] ?? ''));
-        if ($clientFile === '' && $senderDirectory !== '') {
-            $clientFile = buildDownloadSenderFilePath($senderDirectory, 'google_oauth_client_secret.json');
-        }
-        if ($clientFile === '') {
-            $clientFile = GOOGLE_OAUTH_CLIENT_FILE;
-        }
-        $senders[$key] = [
-            'key' => $key,
-            'label' => trim((string) ($senderRow['label'] ?? '')) ?: $email,
-            'email' => $email,
-            'directory' => $senderDirectory,
-            'token_file' => $tokenFile,
-            'client_file' => $clientFile,
-        ];
+        $senders[(string) $normalized['key']] = $normalized;
     }
 
     return $senders !== [] ? $senders : [$legacySender['key'] => $legacySender];
@@ -739,7 +817,10 @@ $assignedTags = fetchCustomerTagsBySheetId($pdo, $sheetId);
 $refundGuaranteeStatuses = fetchRefundGuaranteeStatuses($pdo, $recordSheetId);
 $mailSenderOptions = getMailSenderOptions();
 $defaultMailSenderKey = getDefaultMailSenderKey($mailSenderOptions);
-$draftMailSenderKey = (string) ($existingDraft['mail_sender_key'] ?? '');
+$requestedMailSenderKey = getOptionalQuery('mail_sender_key');
+$draftMailSenderKey = $requestedMailSenderKey !== null && isset($mailSenderOptions[$requestedMailSenderKey])
+    ? $requestedMailSenderKey
+    : (string) ($existingDraft['mail_sender_key'] ?? '');
 if ($draftMailSenderKey === '' || !isset($mailSenderOptions[$draftMailSenderKey])) {
     $draftMailFrom = (string) ($existingDraft['mail_from'] ?? '');
     foreach ($mailSenderOptions as $optionKey => $mailSenderOption) {
@@ -790,7 +871,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $targetWriting = null;
     $fileName = '';
 
-    if ($action === 'save_memo') {
+    if ($action === 'save_mail_sender') {
+        $senderKey = trim((string) ($_POST['sender_key'] ?? ''));
+        $senderLabel = trim((string) ($_POST['sender_label'] ?? ''));
+        $senderEmail = trim((string) ($_POST['sender_email'] ?? ''));
+
+        if ($senderKey === '') {
+            $errors[] = '送付元キーを入力してください。';
+        } elseif (!preg_match('/\A[A-Za-z0-9_\-]+\z/', $senderKey)) {
+            $errors[] = '送付元キーは半角英数字・アンダースコア・ハイフンで入力してください。';
+        }
+        if ($senderLabel === '') {
+            $errors[] = '表示名を入力してください。';
+        }
+        if ($senderEmail === '') {
+            $errors[] = '送付元メールアドレスを入力してください。';
+        } elseif (!filter_var($senderEmail, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = '送付元メールアドレスの形式が不正です。';
+        }
+
+        if ($errors === []) {
+            try {
+                upsertMailSenderConfig($senderKey, $senderLabel, $senderEmail);
+                header('Location: ' . buildDetailUrl(['sender_saved' => '1', 'mail_sender_key' => $senderKey, 'refresh' => (string) time()], 'email-compose'));
+                exit;
+            } catch (Throwable $e) {
+                $errors[] = '送付元設定の保存に失敗しました。' . $e->getMessage();
+            }
+        }
+    } elseif ($action === 'save_memo') {
         $memoInput = trim((string) ($_POST['memo'] ?? ''));
         $memoValue = $memoInput;
         if ($memoInput === '') {
@@ -1500,9 +1609,11 @@ require 'header.php';
                 <p class="notice">メール送信を受け付けました。</p>
               <?php elseif (isset($_GET['attachment_deleted'])): ?>
                 <p class="notice">添付ファイルを削除しました。</p>
+              <?php elseif (isset($_GET['sender_saved'])): ?>
+                <p class="notice">送付元設定を保存しました。</p>
               <?php endif; ?>
 
-              <?php if ($errors !== [] && ($currentAction === 'save_email_draft' || $currentAction === 'send_email' || $currentAction === 'delete_email_attachment')): ?>
+              <?php if ($errors !== [] && ($currentAction === 'save_email_draft' || $currentAction === 'send_email' || $currentAction === 'delete_email_attachment' || $currentAction === 'save_mail_sender')): ?>
                 <ul class="error-list">
                   <?php foreach ($errors as $error): ?>
                     <li><?= h($error); ?></li>
@@ -1530,13 +1641,17 @@ require 'header.php';
                 </div>
                 <div class="field">
                   <label for="mail_sender_key">送付元</label>
-                  <select id="mail_sender_key" name="mail_sender_key">
-                    <?php foreach ($mailSenderOptions as $senderKey => $mailSenderOption): ?>
-                      <option value="<?= h((string) $senderKey); ?>" <?= $formValues['mail_sender_key'] === (string) $senderKey ? 'selected' : ''; ?>>
-                        <?= h((string) ($mailSenderOption['label'] ?? $mailSenderOption['email'] ?? $senderKey)); ?>
-                      </option>
-                    <?php endforeach; ?>
-                  </select>
+                  <div class="inline-control-row">
+                    <select id="mail_sender_key" name="mail_sender_key">
+                      <?php foreach ($mailSenderOptions as $senderKey => $mailSenderOption): ?>
+                        <option value="<?= h((string) $senderKey); ?>" <?= $formValues['mail_sender_key'] === (string) $senderKey ? 'selected' : ''; ?>>
+                          <?= h((string) ($mailSenderOption['label'] ?? $mailSenderOption['email'] ?? $senderKey)); ?>
+                        </option>
+                      <?php endforeach; ?>
+                    </select>
+                    <button type="button" class="btn btn-ghost" data-open-modal="mail-sender-form-modal">新しい送付元を追加</button>
+                  </div>
+                  <p class="muted">キーと同じ名前の <code>download/send_1</code> などのフォルダを送信JSON置き場として使います。</p>
                 </div>
                 <div class="field">
                   <label for="mail_to">宛先</label>
@@ -1889,6 +2004,33 @@ require 'header.php';
       <div class="actions">
         <button class="btn btn-primary" type="submit" data-template-submit-label>追加</button>
         <button class="btn btn-ghost btn-danger" type="button" hidden data-template-delete>削除</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal" id="mail-sender-form-modal" hidden>
+  <div class="modal-dialog panel content-panel">
+    <div class="section-head">
+      <h3>送付元追加</h3>
+      <button type="button" class="btn btn-ghost" data-close-modal>閉じる</button>
+    </div>
+    <form method="post" class="template-item">
+      <input type="hidden" name="action" value="save_mail_sender">
+      <div class="field">
+        <label for="sender_key">キー</label>
+        <input id="sender_key" type="text" name="sender_key" value="<?= h($currentAction === 'save_mail_sender' ? (string) ($_POST['sender_key'] ?? '') : 'send_1'); ?>" pattern="[A-Za-z0-9_-]+" required>
+        <p class="muted">例: <code>send_1</code>。保存後は <code>download/send_1/google_oauth_token.json</code> を使います。</p>
+      </div>
+      <div class="field">
+        <label for="sender_label">表示名</label>
+        <input id="sender_label" type="text" name="sender_label" value="<?= h($currentAction === 'save_mail_sender' ? (string) ($_POST['sender_label'] ?? '') : MAIL_SENDER); ?>" required>
+      </div>
+      <div class="field">
+        <label for="sender_email">メールアドレス</label>
+        <input id="sender_email" type="email" name="sender_email" value="<?= h($currentAction === 'save_mail_sender' ? (string) ($_POST['sender_email'] ?? '') : MAIL_SENDER); ?>" required>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" type="submit">保存</button>
       </div>
     </form>
   </div>

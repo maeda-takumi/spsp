@@ -1265,12 +1265,22 @@ audio {
   margin-top: 10px;
 }
 
+.inline-control-row,
 .attachment-controls {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
+.inline-control-row select,
+.inline-control-row input {
+  flex: 1 1 auto;
+}
+
+.inline-control-row .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
 .attachment-list {
   margin: 10px 0 0;
   padding-left: 0;
@@ -1536,6 +1546,7 @@ audio {
     align-items: flex-start;
     flex-wrap: wrap;
   }
+  .inline-control-row,
   .section-head .btn {
     width: 100%;
   }
@@ -1544,6 +1555,9 @@ audio {
     align-items: flex-start;
   }
 
+  .inline-control-row .btn {
+    width: 100%;
+  }
   .attachment-controls .btn-icon {
     width: 38px;
     height: 38px;
