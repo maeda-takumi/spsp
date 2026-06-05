@@ -8,7 +8,7 @@ declare(strict_types=1);
  * 1) 下の CLIENT_ID / CLIENT_SECRET / REDIRECT_URI を設定
  * 2) このファイルURLにアクセス（例: https://totalappworks.com/supsup_neo/oauth_gmail_token.php）
  * 3) Google同意後、同じURLに code が返ってくる
- * 4) refresh_token を download/google_oauth_token.json に保存
+ * 4) refresh_token を download/send_1/google_oauth_token.json に保存
  */
 
 session_start();
@@ -20,7 +20,7 @@ const REDIRECT_URI  = 'https://totalappworks.com/supsup_neo/oauth_gmail_token.ph
 const SCOPE         = 'https://www.googleapis.com/auth/gmail.send';
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const AUTH_ENDPOINT  = 'https://accounts.google.com/o/oauth2/v2/auth';
-const TOKEN_SAVE_PATH = __DIR__ . '/download/google_oauth_token.json';
+const TOKEN_SAVE_PATH = __DIR__ . '/download/send_1/google_oauth_token.json';
 /* ====== 設定ここまで ====== */
 
 function h(string $v): string {

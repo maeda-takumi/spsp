@@ -38,11 +38,136 @@ function getOptionalQuery(string $key): ?string
     $value = trim($value);
     return $value === '' ? null : $value;
 }
-const GOOGLE_OAUTH_TOKEN_FILE =  'download/google_oauth_token.json';
-const GOOGLE_OAUTH_CLIENT_FILE = 'download/google_oauth_client_secret.json';
+const GOOGLE_OAUTH_TOKEN_FILE = 'download/send_1/google_oauth_token.json';
+const GOOGLE_OAUTH_CLIENT_FILE = 'download/send_1/google_oauth_client_secret.json';
+const MAIL_SENDER_CONFIG_FILE = 'download/mail_senders.json';
 const MAIL_SENDER = 'systemsoufu@gmail.com';
 const FALLBACK_MAIL_TO = MAIL_SENDER;
 const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
+
+function normalizeDownloadRelativePath(string $path): string
+{
+    $normalized = str_replace('\\', '/', trim($path));
+    $normalized = ltrim($normalized, '/');
+    if ($normalized === '') {
+        return '';
+    }
+    if (str_contains($normalized, '../') || str_contains($normalized, '/..') || $normalized === '..') {
+        return '';
+    }
+    if (!str_starts_with($normalized, 'download/')) {
+        $normalized = 'download/' . $normalized;
+    }
+
+    return $normalized;
+}
+
+function normalizeDownloadDirectoryPath(string $path): string
+{
+    $normalized = rtrim(normalizeDownloadRelativePath($path), '/');
+    if ($normalized === '' || !preg_match('#\Adownload/[A-Za-z0-9_\-/]+\z#', $normalized)) {
+        return '';
+    }
+
+    return $normalized;
+}
+
+function buildDownloadSenderFilePath(string $senderDirectory, string $fileName): string
+{
+    $directory = normalizeDownloadDirectoryPath($senderDirectory);
+    if ($directory === '' || !preg_match('/\A[A-Za-z0-9_.-]+\z/', $fileName)) {
+        return '';
+    }
+
+    return $directory . '/' . $fileName;
+}
+
+function getLegacyMailSenderOption(): array
+{
+    return [
+        'key' => 'systemsoufu',
+        'label' => MAIL_SENDER,
+        'email' => MAIL_SENDER,
+        'token_file' => GOOGLE_OAUTH_TOKEN_FILE,
+        'client_file' => GOOGLE_OAUTH_CLIENT_FILE,
+    ];
+}
+
+function getMailSenderOptions(): array
+{
+    $legacySender = getLegacyMailSenderOption();
+    if (!is_file(MAIL_SENDER_CONFIG_FILE)) {
+        return [$legacySender['key'] => $legacySender];
+    }
+
+    $raw = file_get_contents(MAIL_SENDER_CONFIG_FILE);
+    if ($raw === false) {
+        return [$legacySender['key'] => $legacySender];
+    }
+
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        return [$legacySender['key'] => $legacySender];
+    }
+
+    $senderRows = $decoded['senders'] ?? $decoded;
+    if (!is_array($senderRows)) {
+        return [$legacySender['key'] => $legacySender];
+    }
+
+    $senders = [];
+    foreach ($senderRows as $senderRow) {
+        if (!is_array($senderRow)) {
+            continue;
+        }
+
+        $email = trim((string) ($senderRow['email'] ?? ''));
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            continue;
+        }
+
+        $key = trim((string) ($senderRow['key'] ?? ''));
+        if ($key === '') {
+            $key = strtolower((string) preg_replace('/[^A-Za-z0-9_\-]+/', '_', $email));
+        }
+        if (!preg_match('/\A[A-Za-z0-9_\-]+\z/', $key)) {
+            continue;
+        }
+
+        $senderDirectory = normalizeDownloadDirectoryPath((string) ($senderRow['directory'] ?? $senderRow['dir'] ?? $senderRow['folder'] ?? ''));
+        $tokenFile = normalizeDownloadRelativePath((string) ($senderRow['token_file'] ?? $senderRow['tokenFile'] ?? ''));
+        if ($tokenFile === '' && $senderDirectory !== '') {
+            $tokenFile = buildDownloadSenderFilePath($senderDirectory, 'google_oauth_token.json');
+        }
+        if ($tokenFile === '') {
+            continue;
+        }
+
+        $clientFile = normalizeDownloadRelativePath((string) ($senderRow['client_file'] ?? $senderRow['clientFile'] ?? ''));
+        if ($clientFile === '' && $senderDirectory !== '') {
+            $clientFile = buildDownloadSenderFilePath($senderDirectory, 'google_oauth_client_secret.json');
+        }
+        if ($clientFile === '') {
+            $clientFile = GOOGLE_OAUTH_CLIENT_FILE;
+        }
+        $senders[$key] = [
+            'key' => $key,
+            'label' => trim((string) ($senderRow['label'] ?? '')) ?: $email,
+            'email' => $email,
+            'directory' => $senderDirectory,
+            'token_file' => $tokenFile,
+            'client_file' => $clientFile,
+        ];
+    }
+
+    return $senders !== [] ? $senders : [$legacySender['key'] => $legacySender];
+}
+
+function getDefaultMailSenderKey(array $mailSenderOptions): string
+{
+    $firstKey = array_key_first($mailSenderOptions);
+    return is_string($firstKey) ? $firstKey : getLegacyMailSenderOption()['key'];
+}
 
 function requestJson(string $url, array $headers = [], ?string $body = null): array
 {
@@ -79,13 +204,14 @@ function requestJson(string $url, array $headers = [], ?string $body = null): ar
     ];
 }
 
-function getGmailAccessToken(): string
+function getGmailAccessToken(array $mailSender): string
 {
-    if (!is_file(GOOGLE_OAUTH_TOKEN_FILE)) {
+    $tokenFile = (string) ($mailSender['token_file'] ?? '');
+    if ($tokenFile === '' || !is_file($tokenFile)) {
         throw new RuntimeException('Google OAuthトークンファイルが見つかりません。');
     }
 
-    $raw = file_get_contents(GOOGLE_OAUTH_TOKEN_FILE);
+    $raw = file_get_contents($tokenFile);
     if ($raw === false) {
         throw new RuntimeException('Google OAuthトークンファイルの読み込みに失敗しました。');
     }
@@ -103,8 +229,9 @@ function getGmailAccessToken(): string
     }
 
     $clientData = [];
-    if (is_file(GOOGLE_OAUTH_CLIENT_FILE)) {
-        $clientRaw = file_get_contents(GOOGLE_OAUTH_CLIENT_FILE);
+    $clientFile = (string) ($mailSender['client_file'] ?? GOOGLE_OAUTH_CLIENT_FILE);
+    if ($clientFile !== '' && is_file($clientFile)) {
+        $clientRaw = file_get_contents($clientFile);
         if ($clientRaw === false) {
             throw new RuntimeException('Google OAuthクライアント設定ファイルの読み込みに失敗しました。');
         }
@@ -147,7 +274,7 @@ function getGmailAccessToken(): string
     $tokenUri = (string) ($tokenData['token_uri'] ?? $tokenAppData['token_uri'] ?? $clientData['token_uri'] ?? 'https://oauth2.googleapis.com/token');
 
     if ($clientId === '' || $clientSecret === '' || $refreshToken === '') {
-        throw new RuntimeException('Google OAuth情報が不足しています。google_oauth_token.json に refresh_token、google_oauth_token.json または google_oauth_client_secret.json に client_id / client_secret を設定してください。');
+        throw new RuntimeException('Google OAuth情報が不足しています。送付元ごとのトークンJSONに refresh_token、トークンJSONまたはクライアント設定JSONに client_id / client_secret を設定してください。');
     }
 
     $body = http_build_query([
@@ -172,11 +299,11 @@ function getGmailAccessToken(): string
     return $accessToken;
 }
 
-function buildGmailRawMessage(string $to, string $subject, string $body, array $attachments = []): string
+function buildGmailRawMessage(string $from, string $to, string $subject, string $body, array $attachments = []): string
 {
     $encodedSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
     $headers = [
-        'From: ' . MAIL_SENDER,
+        'From: ' . $from,
         'To: ' . $to,
         'Subject: ' . $encodedSubject,
         'MIME-Version: 1.0',
@@ -219,18 +346,23 @@ function buildGmailRawMessage(string $to, string $subject, string $body, array $
     return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
 }
 
-function sendWithGmailApi(string $to, string $subject, string $body, array $attachments = []): void
+function sendWithGmailApi(array $mailSender, string $to, string $subject, string $body, array $attachments = []): void
 {
-    $accessToken = getGmailAccessToken();
+    $from = (string) ($mailSender['email'] ?? '');
+    if (!filter_var($from, FILTER_VALIDATE_EMAIL)) {
+        throw new RuntimeException('送付元メールアドレスの設定が不正です。');
+    }
+
+    $accessToken = getGmailAccessToken($mailSender);
     $payload = json_encode([
-        'raw' => buildGmailRawMessage($to, $subject, $body, $attachments),
+        'raw' => buildGmailRawMessage($from, $to, $subject, $body, $attachments),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     if (!is_string($payload)) {
         throw new RuntimeException('メール送信ペイロードの作成に失敗しました。');
     }
 
     $response = requestJson(
-        'https://gmail.googleapis.com/gmail/v1/users/' . rawurlencode(MAIL_SENDER) . '/messages/send',
+        'https://gmail.googleapis.com/gmail/v1/users/' . rawurlencode($from) . '/messages/send',
         [
             'Authorization: Bearer ' . $accessToken,
             'Content-Type: application/json',
@@ -448,6 +580,9 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_drafts (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     customer_sales_record_id VARCHAR(100) NOT NULL,
     email_template_id BIGINT UNSIGNED NULL,
+    mail_to VARCHAR(255) NULL,
+    mail_sender_key VARCHAR(100) NULL,
+    mail_from VARCHAR(255) NULL,
     mail_subject VARCHAR(255) NULL,
     mail_body TEXT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -485,6 +620,9 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS customer_sales_record_email_send_logs (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     customer_sales_record_id VARCHAR(100) NOT NULL,
     email_template_id BIGINT UNSIGNED NULL,
+    mail_to VARCHAR(255) NULL,
+    mail_sender_key VARCHAR(100) NULL,
+    mail_from VARCHAR(255) NULL,
     mail_subject VARCHAR(255) NOT NULL,
     mail_body TEXT NOT NULL,
     sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -512,8 +650,20 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS customer_memo (
 if (!tableHasColumn($pdo, 'customer_sales_record_email_drafts', 'mail_to')) {
     $pdo->exec('ALTER TABLE customer_sales_record_email_drafts ADD COLUMN mail_to VARCHAR(255) NULL AFTER email_template_id');
 }
+if (!tableHasColumn($pdo, 'customer_sales_record_email_drafts', 'mail_sender_key')) {
+    $pdo->exec('ALTER TABLE customer_sales_record_email_drafts ADD COLUMN mail_sender_key VARCHAR(100) NULL AFTER mail_to');
+}
+if (!tableHasColumn($pdo, 'customer_sales_record_email_drafts', 'mail_from')) {
+    $pdo->exec('ALTER TABLE customer_sales_record_email_drafts ADD COLUMN mail_from VARCHAR(255) NULL AFTER mail_sender_key');
+}
 if (!tableHasColumn($pdo, 'customer_sales_record_email_send_logs', 'mail_to')) {
-    $pdo->exec('ALTER TABLE customer_sales_record_email_send_logs ADD COLUMN mail_to VARCHAR(255) NOT NULL AFTER email_template_id');
+    $pdo->exec('ALTER TABLE customer_sales_record_email_send_logs ADD COLUMN mail_to VARCHAR(255) NULL AFTER email_template_id');
+}
+if (!tableHasColumn($pdo, 'customer_sales_record_email_send_logs', 'mail_sender_key')) {
+    $pdo->exec('ALTER TABLE customer_sales_record_email_send_logs ADD COLUMN mail_sender_key VARCHAR(100) NULL AFTER mail_to');
+}
+if (!tableHasColumn($pdo, 'customer_sales_record_email_send_logs', 'mail_from')) {
+    $pdo->exec('ALTER TABLE customer_sales_record_email_send_logs ADD COLUMN mail_from VARCHAR(255) NULL AFTER mail_sender_key');
 }
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS chatwork_mention_masters (
@@ -532,7 +682,7 @@ if (!tableHasColumn($pdo, 'email_templates', 'chatwork_mention_ids')) {
     $pdo->exec('ALTER TABLE email_templates ADD COLUMN chatwork_mention_ids VARCHAR(255) NULL AFTER chatwork_message_template');
 }
 $recordSheetId = (string) ($record['sheet_id'] ?? $sheetId);
-$draftStmt = $pdo->prepare('SELECT email_template_id, mail_to, mail_subject, mail_body FROM customer_sales_record_email_drafts WHERE customer_sales_record_id = :record_id LIMIT 1');
+$draftStmt = $pdo->prepare('SELECT email_template_id, mail_to, mail_sender_key, mail_from, mail_subject, mail_body FROM customer_sales_record_email_drafts WHERE customer_sales_record_id = :record_id LIMIT 1');
 
 $mentionMasterStmt = $pdo->query('SELECT id, name, chatwork_id FROM chatwork_mention_masters ORDER BY id ASC');
 $mentionMasters = $mentionMasterStmt->fetchAll();
@@ -587,6 +737,21 @@ $memoError = '';
 $tagMaster = fetchCustomerTagMaster($pdo);
 $assignedTags = fetchCustomerTagsBySheetId($pdo, $sheetId);
 $refundGuaranteeStatuses = fetchRefundGuaranteeStatuses($pdo, $recordSheetId);
+$mailSenderOptions = getMailSenderOptions();
+$defaultMailSenderKey = getDefaultMailSenderKey($mailSenderOptions);
+$draftMailSenderKey = (string) ($existingDraft['mail_sender_key'] ?? '');
+if ($draftMailSenderKey === '' || !isset($mailSenderOptions[$draftMailSenderKey])) {
+    $draftMailFrom = (string) ($existingDraft['mail_from'] ?? '');
+    foreach ($mailSenderOptions as $optionKey => $mailSenderOption) {
+        if ((string) ($mailSenderOption['email'] ?? '') === $draftMailFrom) {
+            $draftMailSenderKey = (string) $optionKey;
+            break;
+        }
+    }
+}
+if ($draftMailSenderKey === '' || !isset($mailSenderOptions[$draftMailSenderKey])) {
+    $draftMailSenderKey = $defaultMailSenderKey;
+}
 
 $errors = [];
 $currentAction = (string) ($_POST['action'] ?? '');
@@ -594,6 +759,7 @@ $formValues = [
     'writing' => '',
     'writing_notes' => '',
     'email_template_id' => isset($existingDraft['email_template_id']) ? (string) $existingDraft['email_template_id'] : '',
+    'mail_sender_key' => $draftMailSenderKey,
     'mail_to' => (string) ($existingDraft['mail_to'] ?? $defaultMailTo),
     'mail_subject' => (string) ($existingDraft['mail_subject'] ?? ''),
     'mail_body' => (string) ($existingDraft['mail_body'] ?? ''),
@@ -767,16 +933,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = '依頼管理画面から開いた場合のみ送信可能です。';
         }
         $templateId = (int) ($_POST['email_template_id'] ?? 0);
+        $mailSenderKey = trim((string) ($_POST['mail_sender_key'] ?? ''));
         $mailTo = trim((string) ($_POST['mail_to'] ?? ''));
         $mailSubject = trim((string) ($_POST['mail_subject'] ?? ''));
         $mailBody = trim((string) ($_POST['mail_body'] ?? ''));
         $slideConfirmed = (string) ($_POST['slide_confirmed'] ?? '');
         $mailAttachments = $_FILES['mail_attachments'] ?? null;
+        $selectedMailSender = $mailSenderOptions[$mailSenderKey] ?? null;
+        $mailFrom = is_array($selectedMailSender) ? (string) ($selectedMailSender['email'] ?? '') : '';
         $formValues['email_template_id'] = $templateId > 0 ? (string) $templateId : '';
+        $formValues['mail_sender_key'] = $mailSenderKey !== '' ? $mailSenderKey : $defaultMailSenderKey;
         $formValues['mail_to'] = $mailTo;
         $formValues['mail_subject'] = $mailSubject;
         $formValues['mail_body'] = $mailBody;
 
+        if (!is_array($selectedMailSender)) {
+            $errors[] = '送付元を選択してください。';
+        }
         if ($mailTo === '') {
             $errors[] = '宛先メールアドレスを入力してください。';
         } elseif (!filter_var($mailTo, FILTER_VALIDATE_EMAIL)) {
@@ -830,13 +1003,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($errors === []) {
             $upsertDraftStmt = $pdo->prepare(
-                'INSERT INTO customer_sales_record_email_drafts (customer_sales_record_id, email_template_id, mail_to, mail_subject, mail_body)
-                 VALUES (:record_id, :template_id, :mail_to, :mail_subject, :mail_body)
-                 ON DUPLICATE KEY UPDATE email_template_id = VALUES(email_template_id), mail_to = VALUES(mail_to), mail_subject = VALUES(mail_subject), mail_body = VALUES(mail_body)'
+                'INSERT INTO customer_sales_record_email_drafts (customer_sales_record_id, email_template_id, mail_to, mail_sender_key, mail_from, mail_subject, mail_body)
+                 VALUES (:record_id, :template_id, :mail_to, :mail_sender_key, :mail_from, :mail_subject, :mail_body)
+                 ON DUPLICATE KEY UPDATE email_template_id = VALUES(email_template_id), mail_to = VALUES(mail_to), mail_sender_key = VALUES(mail_sender_key), mail_from = VALUES(mail_from), mail_subject = VALUES(mail_subject), mail_body = VALUES(mail_body)'
             );
             $upsertDraftStmt->bindValue(':record_id', $recordSheetId);
             $upsertDraftStmt->bindValue(':template_id', $templateId > 0 ? $templateId : null, $templateId > 0 ? PDO::PARAM_INT : PDO::PARAM_NULL);
             $upsertDraftStmt->bindValue(':mail_to', $mailTo);
+            $upsertDraftStmt->bindValue(':mail_sender_key', $mailSenderKey);
+            $upsertDraftStmt->bindValue(':mail_from', $mailFrom);
             $upsertDraftStmt->bindValue(':mail_subject', $mailSubject);
             $upsertDraftStmt->bindValue(':mail_body', $mailBody);
             $upsertDraftStmt->execute();
@@ -937,7 +1112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 try {
-                    sendWithGmailApi($mailTo, $mailSubject, $mailBody, $attachmentsForSend);
+                    sendWithGmailApi($selectedMailSender, $mailTo, $mailSubject, $mailBody, $attachmentsForSend);
                 } catch (Throwable $e) {
                     $errors[] = 'メール送信に失敗しました。' . $e->getMessage();
                 }
@@ -945,12 +1120,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($errors === [] && $action === 'send_email') {
                 $sendLogStmt = $pdo->prepare(
-                    'INSERT INTO customer_sales_record_email_send_logs (customer_sales_record_id, email_template_id, mail_to, mail_subject, mail_body)
-                     VALUES (:record_id, :template_id, :mail_to, :mail_subject, :mail_body)'
+                    'INSERT INTO customer_sales_record_email_send_logs (customer_sales_record_id, email_template_id, mail_to, mail_sender_key, mail_from, mail_subject, mail_body)
+                     VALUES (:record_id, :template_id, :mail_to, :mail_sender_key, :mail_from, :mail_subject, :mail_body)'
                 );
                 $sendLogStmt->bindValue(':record_id', $recordSheetId);
                 $sendLogStmt->bindValue(':template_id', $templateId > 0 ? $templateId : null, $templateId > 0 ? PDO::PARAM_INT : PDO::PARAM_NULL);
                 $sendLogStmt->bindValue(':mail_to', $mailTo);
+                $sendLogStmt->bindValue(':mail_sender_key', $mailSenderKey);
+                $sendLogStmt->bindValue(':mail_from', $mailFrom);
                 $sendLogStmt->bindValue(':mail_subject', $mailSubject);
                 $sendLogStmt->bindValue(':mail_body', $mailBody);
                 $sendLogStmt->execute();
@@ -1352,6 +1529,16 @@ require 'header.php';
                   </select>
                 </div>
                 <div class="field">
+                  <label for="mail_sender_key">送付元</label>
+                  <select id="mail_sender_key" name="mail_sender_key">
+                    <?php foreach ($mailSenderOptions as $senderKey => $mailSenderOption): ?>
+                      <option value="<?= h((string) $senderKey); ?>" <?= $formValues['mail_sender_key'] === (string) $senderKey ? 'selected' : ''; ?>>
+                        <?= h((string) ($mailSenderOption['label'] ?? $mailSenderOption['email'] ?? $senderKey)); ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+                <div class="field">
                   <label for="mail_to">宛先</label>
                   <input id="mail_to" name="mail_to" type="email" value="<?= h($formValues['mail_to']); ?>" placeholder="example@example.com">
                 </div>
@@ -1392,6 +1579,7 @@ require 'header.php';
                               ×
                             </button>
                             <input type="hidden" name="email_template_id" value="<?= h($formValues['email_template_id']); ?>">
+                            <input type="hidden" name="mail_sender_key" value="<?= h($formValues['mail_sender_key']); ?>">
                             <input type="hidden" name="mail_to" value="<?= h($formValues['mail_to']); ?>">
                             <input type="hidden" name="mail_subject" value="<?= h($formValues['mail_subject']); ?>">
                             <input type="hidden" name="mail_body" value="<?= h($formValues['mail_body']); ?>">
